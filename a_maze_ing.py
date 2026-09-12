@@ -11,6 +11,7 @@ from typing import Any
 
 from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, MazeGenerator
 
+_CELL = 16
 _MOVES = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
 _ASSETS = (
     "wall-0.png",
@@ -167,11 +168,10 @@ class Window:
         self.images: list[int] = []
         self.tiles: dict[str, list[tuple[int, int, bytes]]] = {}
         try:
-            self.cell: int = 32
             columns, rows = len(initial.walls[0]), len(initial.walls)
-            # Include the 4px outer wall beyond the last row and column.
-            win_w = columns * self.cell + 4
-            win_h = rows * self.cell + 4
+            # Include the 2px outer wall beyond the last row and column.
+            win_w = columns * _CELL + 2
+            win_h = rows * _CELL + 2
             self.window = self.api.mlx_new_window(
                 self.mlx, win_w, win_h, "A-Maze-ing"
             )
@@ -196,7 +196,7 @@ class Window:
 
     def _load_tiles(self) -> None:
         """Load each PNG once and keep its visible row segments for drawing."""
-        assets = Path(__file__).parent / "assets" / str(self.cell)
+        assets = Path(__file__).parent / "assets" / "16"
         for name in _ASSETS:
             image, width, height = self.api.mlx_png_file_to_image(
                 self.mlx, str(assets / name)
@@ -269,15 +269,15 @@ class Window:
                 wall_tile = f"wall-{self.wall_color}.png"
                 for y, row in enumerate(self.maze.walls):
                     for x, walls in enumerate(row):
-                        px, py = x * self.cell, y * self.cell
+                        px, py = x * _CELL, y * _CELL
                         self.draw_tile(wall_tile, px, py)
                         if walls == ALL_WALLS:
                             self.draw_tile("pattern.png", px, py)
                         # Join the tiles already drawn above and left.
                         if not walls & NORTH_BIT:
-                            self.draw_tile("open-s.png", px, py - self.cell)
+                            self.draw_tile("open-s.png", px, py - _CELL)
                         if not walls & WEST_BIT:
-                            self.draw_tile("open-e.png", px - self.cell, py)
+                            self.draw_tile("open-e.png", px - _CELL, py)
                 # Hiding the path must erase its old pixels.
                 self.background = bytes(self.pixels)
             else:
@@ -285,17 +285,11 @@ class Window:
 
             if self.path_visible:
                 for x, y in self.maze.path:
-                    self.draw_tile("path.png", x * self.cell, y * self.cell)
-            self.draw_tile(
-                "entry.png",
-                self.maze.entry[0] * self.cell,
-                self.maze.entry[1] * self.cell,
-            )
-            self.draw_tile(
-                "exit.png",
-                self.maze.exit[0] * self.cell,
-                self.maze.exit[1] * self.cell,
-            )
+                    self.draw_tile("path.png", x * _CELL, y * _CELL)
+            x, y = self.maze.entry
+            self.draw_tile("entry.png", x * _CELL, y * _CELL)
+            x, y = self.maze.exit
+            self.draw_tile("exit.png", x * _CELL, y * _CELL)
             _ = self.api.mlx_put_image_to_window(
                 self.mlx, self.window, self.frame, 0, 0
             )
@@ -347,10 +341,11 @@ class Window:
                 self.background = None
             else:
                 return
-            _ = self.draw()
         except Exception as error:  # noqa: BLE001
             message = str(error) or type(error).__name__
             print(f"Error: {message}", file=sys.stderr)
+            return
+        _ = self.draw()
 
 
 if __name__ == "__main__":
