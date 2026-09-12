@@ -9,7 +9,7 @@ from pathlib import Path
 from random import Random
 from typing import Any
 
-from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, Cell, MazeGenerator
+from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, MazeGenerator
 
 _MOVES = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
 _ASSETS = (
@@ -34,7 +34,7 @@ def main(arguments: list[str]) -> int:
         arguments: Command-line arguments without the program name.
 
     Returns:
-        Zero after the window session returns; one if main reports an error.
+        Zero after the window loop returns; one if startup fails.
     """
     if len(arguments) != 1:
         print("Usage: python3 a_maze_ing.py <config_file>", file=sys.stderr)
@@ -43,31 +43,29 @@ def main(arguments: list[str]) -> int:
     # Missing keys belong to configuration errors, not to later callbacks.
     try:
         config = parse_config(Path(arguments[0]).read_text(encoding="utf-8"))
-        width = _parse_int(config["WIDTH"], "WIDTH")
-        height = _parse_int(config["HEIGHT"], "HEIGHT")
-        entry = _parse_cell(config["ENTRY"], "ENTRY")
-        exit_cell = _parse_cell(config["EXIT"], "EXIT")
+        width, height = int(config["WIDTH"]), int(config["HEIGHT"])
+        entry_x, entry_y = map(int, config["ENTRY"].split(","))
+        exit_x, exit_y = map(int, config["EXIT"].split(","))
+        entry = (entry_x, entry_y)
+        exit_cell = (exit_x, exit_y)
         perfect_text = config["PERFECT"]
         if perfect_text not in ("True", "False"):
             raise ValueError("PERFECT must be True or False")
         output = Path(config["OUTPUT_FILE"])
-        seed = _parse_int(config["SEED"], "SEED") if "SEED" in config else None
+        seed = int(config["SEED"]) if "SEED" in config else None
     except KeyError as error:
         print(f"Error: missing config key {error.args[0]}", file=sys.stderr)
         return 1
     except Exception as error:  # noqa: BLE001
         message = str(error) or type(error).__name__
-        print(f"Error: {message}", file=sys.stderr)
+        print(f"Error: {arguments[0]}: {message}", file=sys.stderr)
         return 1
 
     try:
         rng = Random(seed)  # noqa: S311
 
         def generate_and_save() -> MazeGenerator:
-            """Consume the session stream and return a maze after saving it.
-
-            A failed save propagates without rewinding the random stream.
-            """
+            """Generate with the session RNG and return only after saving."""
             maze = MazeGenerator(
                 width,
                 height,
@@ -82,50 +80,14 @@ def main(arguments: list[str]) -> int:
         maze = generate_and_save()
         if not any(ALL_WALLS in row for row in maze.walls):
             print("Error: maze is too small for 42", file=sys.stderr)
-        Window(maze, generate_and_save).run()
+        return Window(maze, generate_and_save).run()
     except Exception as error:  # noqa: BLE001
         message = str(error) or type(error).__name__
         print(f"Error: {message}", file=sys.stderr)
         return 1
-    return 0
 
 
 # --- Convert values; main owns the file reads and writes ---
-
-
-def _parse_int(value: str, key: str) -> int:
-    """Convert a setting to an integer, naming invalid input.
-
-    Args:
-        value: Text from the configuration file.
-        key: Setting name to include in an error message.
-
-    Returns:
-        The parsed integer.
-    """
-    try:
-        return int(value)
-    except ValueError as error:
-        raise ValueError(f"{key} must be an integer") from error
-
-
-def _parse_cell(value: str, key: str) -> Cell:
-    """Parse a coordinate pair; the generator checks its bounds.
-
-    Args:
-        value: Coordinate text in x,y format.
-        key: Setting name to include in an error message.
-
-    Returns:
-        The parsed (x, y) coordinates.
-    """
-    try:
-        x, y = map(int, value.split(","))
-    except ValueError as error:
-        raise ValueError(
-            f"{key} must contain two integers in x,y format"
-        ) from error
-    return x, y
 
 
 def parse_config(text: str) -> dict[str, str]:
@@ -207,31 +169,26 @@ class Window:
         try:
             # Select the largest asset size that fits, including outer walls.
             columns, rows = len(initial.walls[0]), len(initial.walls)
-            _, screen_width, screen_height = self.api.mlx_get_screen_size(
-                self.mlx
-            )
-            for cell, wall_width in ((32, 4), (16, 2), (8, 1)):
+            _, screen_w, screen_h = self.api.mlx_get_screen_size(self.mlx)
+            for cell, wall_w in ((32, 4), (16, 2), (8, 1)):
                 if (
-                    columns * cell + wall_width <= screen_width - 64
-                    and rows * cell + wall_width <= screen_height - 64
+                    columns * cell + wall_w <= screen_w - 64
+                    and rows * cell + wall_w <= screen_h - 64
                 ):
                     break
             else:
                 raise ValueError("maze is too large to display on this screen")
             self.cell: int = cell
-            window_width = columns * cell + wall_width
-            window_height = rows * cell + wall_width
+            win_w, win_h = columns * cell + wall_w, rows * cell + wall_w
             self.window = self.api.mlx_new_window(
-                self.mlx, window_width, window_height, "A-Maze-ing"
+                self.mlx, win_w, win_h, "A-Maze-ing"
             )
             if self.window is None:
                 raise RuntimeError("mlx_new_window failed")
 
             self._load_tiles()
             # One full-window image; pixels borrows its native memory.
-            self.frame = self.api.mlx_new_image(
-                self.mlx, window_width, window_height
-            )
+            self.frame = self.api.mlx_new_image(self.mlx, win_w, win_h)
             if self.frame is None:
                 raise RuntimeError("mlx_new_image failed")
             self.images.append(self.frame)
@@ -274,32 +231,25 @@ class Window:
 
     # --- Callbacks may use the window until the event loop returns ---
 
-    def run(self) -> None:
-        """Register callbacks, draw once, and release resources after exit."""
+    def run(self) -> int:
+        """Draw the initial frame, then handle events until exit.
+
+        Returns:
+            Zero when the loop ends; one if initial drawing fails.
+        """
         # Mlx retains the bound methods; this call keeps their owner alive.
         try:
             _ = self.api.mlx_key_hook(self.window, self.key, None)
-            _ = self.api.mlx_expose_hook(self.window, self.redraw, None)
+            _ = self.api.mlx_expose_hook(self.window, self.draw, None)
             _ = self.api.mlx_hook(
                 self.window, 33, 0, self.api.mlx_loop_exit, self.mlx
             )
-            self.draw()
+            if not self.draw():
+                return 1
             _ = self.api.mlx_loop(self.mlx)
+            return 0
         finally:
             self.close()
-
-    def redraw(self, _state: object | None = None) -> None:
-        """Report a drawing failure and ask the event loop to stop.
-
-        Args:
-            _state: Unused MLX callback argument.
-        """
-        try:
-            self.draw()
-        except Exception as error:  # noqa: BLE001
-            message = str(error) or type(error).__name__
-            print(f"Error: {message}", file=sys.stderr)
-            _ = self.api.mlx_loop_exit(self.mlx)
 
     def close(self) -> None:
         """Release images before their window, and the MLX context last."""
@@ -313,54 +263,60 @@ class Window:
 
     # --- Build the background, add markers, then present the frame ---
 
-    def draw(self, _state: object | None = None) -> None:
+    def draw(self, _state: object | None = None) -> bool:
         """Reuse the maze background; rebuild overlays and present the frame.
 
         Args:
             _state: Unused MLX callback argument.
-        """
-        if self.background is None:
-            wall_tile = f"wall-{self.wall_color}.png"
-            for y, row in enumerate(self.maze.walls):
-                for x, walls in enumerate(row):
-                    pixel_x, pixel_y = x * self.cell, y * self.cell
-                    self.draw_tile(wall_tile, pixel_x, pixel_y)
-                    if walls == ALL_WALLS:
-                        self.draw_tile("pattern.png", pixel_x, pixel_y)
-                    # Join the tiles already drawn above and left.
-                    if not walls & NORTH_BIT:
-                        self.draw_tile(
-                            "open-s.png", pixel_x, pixel_y - self.cell
-                        )
-                    if not walls & WEST_BIT:
-                        self.draw_tile(
-                            "open-e.png", pixel_x - self.cell, pixel_y
-                        )
-            # Do not cache markers: hiding the path must erase its old pixels.
-            self.background = bytes(self.pixels)
-        else:
-            self.pixels[:] = self.background
 
-        if self.path_visible:
-            for x, y in self.maze.path:
-                self.draw_tile("path.png", x * self.cell, y * self.cell)
-        self.draw_tile(
-            "entry.png",
-            self.maze.entry[0] * self.cell,
-            self.maze.entry[1] * self.cell,
-        )
-        self.draw_tile(
-            "exit.png",
-            self.maze.exit[0] * self.cell,
-            self.maze.exit[1] * self.cell,
-        )
-        _ = self.api.mlx_put_image_to_window(
-            self.mlx, self.window, self.frame, 0, 0
-        )
-        # Wait for the GPU to finish reading before an event edits this frame.
-        _ = self.api.mlx_sync(
-            self.mlx, self.api.SYNC_WIN_COMPLETED, self.window
-        )
+        Returns:
+            True after presentation completes; False on a reported error.
+        """
+        try:
+            if self.background is None:
+                wall_tile = f"wall-{self.wall_color}.png"
+                for y, row in enumerate(self.maze.walls):
+                    for x, walls in enumerate(row):
+                        px, py = x * self.cell, y * self.cell
+                        self.draw_tile(wall_tile, px, py)
+                        if walls == ALL_WALLS:
+                            self.draw_tile("pattern.png", px, py)
+                        # Join the tiles already drawn above and left.
+                        if not walls & NORTH_BIT:
+                            self.draw_tile("open-s.png", px, py - self.cell)
+                        if not walls & WEST_BIT:
+                            self.draw_tile("open-e.png", px - self.cell, py)
+                # Hiding the path must erase its old pixels.
+                self.background = bytes(self.pixels)
+            else:
+                self.pixels[:] = self.background
+
+            if self.path_visible:
+                for x, y in self.maze.path:
+                    self.draw_tile("path.png", x * self.cell, y * self.cell)
+            self.draw_tile(
+                "entry.png",
+                self.maze.entry[0] * self.cell,
+                self.maze.entry[1] * self.cell,
+            )
+            self.draw_tile(
+                "exit.png",
+                self.maze.exit[0] * self.cell,
+                self.maze.exit[1] * self.cell,
+            )
+            _ = self.api.mlx_put_image_to_window(
+                self.mlx, self.window, self.frame, 0, 0
+            )
+            # Finish the GPU read before an event edits this frame.
+            _ = self.api.mlx_sync(
+                self.mlx, self.api.SYNC_WIN_COMPLETED, self.window
+            )
+        except Exception as error:  # noqa: BLE001
+            message = str(error) or type(error).__name__
+            print(f"Error: {message}", file=sys.stderr)
+            _ = self.api.mlx_loop_exit(self.mlx)
+            return False
+        return True
 
     def draw_tile(self, name: str, pixel_x: int, pixel_y: int) -> None:
         """Copy a tile's visible pixels into the frame, without presenting.
@@ -370,11 +326,10 @@ class Window:
             pixel_x: Tile origin in frame pixels, measured from the left.
             pixel_y: Tile origin in frame pixels, measured from the top.
         """
-        for tile_x, tile_y, pixels in self.tiles[name]:
-            first_byte = (pixel_y + tile_y) * self.stride
-            first_byte += (pixel_x + tile_x) * 4
-            last_byte = first_byte + len(pixels)
-            self.pixels[first_byte:last_byte] = pixels
+        for tile_x, tile_y, segment in self.tiles[name]:
+            offset = (pixel_y + tile_y) * self.stride + (pixel_x + tile_x) * 4
+            end = offset + len(segment)
+            self.pixels[offset:end] = segment
 
     # --- Change state first; draw only after that change succeeds ---
 
@@ -400,7 +355,7 @@ class Window:
                 self.background = None
             else:
                 return
-            self.redraw()
+            _ = self.draw()
         except Exception as error:  # noqa: BLE001
             message = str(error) or type(error).__name__
             print(f"Error: {message}", file=sys.stderr)
