@@ -12,6 +12,7 @@ from typing import Any
 from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, MazeGenerator
 
 _CELL = 16
+_KEYS = {"WIDTH", "HEIGHT", "ENTRY", "EXIT", "OUTPUT_FILE", "PERFECT", "SEED"}
 _MOVES = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
 _ASSETS = (
     "wall-0.png",
@@ -101,7 +102,7 @@ def parse_config(text: str) -> dict[str, str]:
         Trimmed names and values; the last duplicate name wins.
 
     Raises:
-        ValueError: A non-comment line lacks '=' or a key name.
+        ValueError: A non-comment line lacks '=' or has an unsupported key.
     """
     config: dict[str, str] = {}
     for line_num, raw_line in enumerate(text.splitlines(), 1):
@@ -112,8 +113,8 @@ def parse_config(text: str) -> dict[str, str]:
             raise ValueError(f"line {line_num}: missing '=' delimiter")
         key, value = line.split("=", 1)
         key = key.strip()
-        if not key:
-            raise ValueError(f"line {line_num}: missing key")
+        if key not in _KEYS:
+            raise ValueError(f"line {line_num}: invalid key {key!r}")
         config[key] = value.strip()
     return config
 
