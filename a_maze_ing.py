@@ -167,19 +167,11 @@ class Window:
         self.images: list[int] = []
         self.tiles: dict[str, list[tuple[int, int, bytes]]] = {}
         try:
-            # Select the largest asset size that fits, including outer walls.
+            self.cell: int = 32
             columns, rows = len(initial.walls[0]), len(initial.walls)
-            _, screen_w, screen_h = self.api.mlx_get_screen_size(self.mlx)
-            for cell, wall_w in ((32, 4), (16, 2), (8, 1)):
-                if (
-                    columns * cell + wall_w <= screen_w - 64
-                    and rows * cell + wall_w <= screen_h - 64
-                ):
-                    break
-            else:
-                raise ValueError("maze is too large to display on this screen")
-            self.cell: int = cell
-            win_w, win_h = columns * cell + wall_w, rows * cell + wall_w
+            # Include the 4px outer wall beyond the last row and column.
+            win_w = columns * self.cell + 4
+            win_h = rows * self.cell + 4
             self.window = self.api.mlx_new_window(
                 self.mlx, win_w, win_h, "A-Maze-ing"
             )
