@@ -195,6 +195,18 @@ print(bool(maze.walls[0][0] & EAST_BIT))
 `(x, y)` 좌표 튜플입니다. [패키지 사용 설명](mazegen/README.md)에 모든 매개변수와
 반환 구조, 예외와 제한을 정리했습니다.
 
+## License
+
+이 프로젝트의 자체 제작물은 [Blue Oak Model License 1.0.0](LICENSE.md)을
+적용합니다. 후속 프로젝트에서 재사용하기 쉽고, 두 팀원이 권리와 의무를 직접
+읽고 설명할 수 있으며, 특허 허락을 명시한다는 이유로 선택했습니다.
+재배포할 때 라이선스 본문 또는 공식 링크를 전달합니다. 소스 공개나 변경 사실
+표시를 요구하지 않지만, 모든 법적 위험이나 제삼자의 특허 문제를 해결하지는 않습니다.
+
+동봉한 MiniLibX는 별도 저작물이며, 기존
+[MIT 라이선스와 저작권 고지](third_party/mlx/LICENSE.md)를 그대로 유지합니다.
+생성기 wheel에는 MiniLibX가 포함되지 않습니다.
+
 ## Team and project management
 
 - `hyunlee`: `mazegen`의 생성·해결 로직과 공개 API를 담당합니다.
