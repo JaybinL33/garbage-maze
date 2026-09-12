@@ -9,7 +9,7 @@ from pathlib import Path
 from random import Random
 from typing import Any
 
-from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, MazeGenerator
+from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, Cell, MazeGenerator
 
 _MOVES = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
 _ASSETS = (
@@ -43,18 +43,20 @@ def main(arguments: list[str]) -> int:
     # Missing keys belong to configuration errors, not to later callbacks.
     try:
         config = parse_config(Path(arguments[0]).read_text(encoding="utf-8"))
-        width, height = int(config["WIDTH"]), int(config["HEIGHT"])
-        entry_x, entry_y = map(int, config["ENTRY"].split(","))
-        exit_x, exit_y = map(int, config["EXIT"].split(","))
-        entry = (entry_x, entry_y)
-        exit_cell = (exit_x, exit_y)
+        width = _parse_int(config["WIDTH"], "WIDTH")
+        height = _parse_int(config["HEIGHT"], "HEIGHT")
+        entry = _parse_cell(config["ENTRY"], "ENTRY")
+        exit_cell = _parse_cell(config["EXIT"], "EXIT")
         perfect_text = config["PERFECT"]
         if perfect_text not in ("True", "False"):
             raise ValueError("PERFECT must be True or False")
         output = Path(config["OUTPUT_FILE"])
-        seed = int(config["SEED"]) if "SEED" in config else None
+        seed = _parse_int(config["SEED"], "SEED") if "SEED" in config else None
     except KeyError as error:
         print(f"Error: missing config key {error.args[0]}", file=sys.stderr)
+        return 1
+    except MemoryError:
+        print("Error: not enough memory", file=sys.stderr)
         return 1
     except Exception as error:  # noqa: BLE001
         print(f"Error: {error}", file=sys.stderr)
@@ -83,6 +85,9 @@ def main(arguments: list[str]) -> int:
         if not any(ALL_WALLS in row for row in maze.walls):
             print("Error: maze is too small for 42", file=sys.stderr)
         Window(maze, generate_and_save).run()
+    except MemoryError:
+        print("Error: not enough memory", file=sys.stderr)
+        return 1
     except Exception as error:  # noqa: BLE001
         print(f"Error: {error}", file=sys.stderr)
         return 1
@@ -90,6 +95,41 @@ def main(arguments: list[str]) -> int:
 
 
 # --- Convert values; main owns the file reads and writes ---
+
+
+def _parse_int(value: str, key: str) -> int:
+    """Convert a setting to an integer, naming invalid input.
+
+    Args:
+        value: Text from the configuration file.
+        key: Setting name to include in an error message.
+
+    Returns:
+        The parsed integer.
+    """
+    try:
+        return int(value)
+    except ValueError as error:
+        raise ValueError(f"{key} must be an integer") from error
+
+
+def _parse_cell(value: str, key: str) -> Cell:
+    """Parse a coordinate pair; the generator checks its bounds.
+
+    Args:
+        value: Coordinate text in x,y format.
+        key: Setting name to include in an error message.
+
+    Returns:
+        The parsed (x, y) coordinates.
+    """
+    try:
+        x, y = map(int, value.split(","))
+    except ValueError as error:
+        raise ValueError(
+            f"{key} must contain two integers in x,y format"
+        ) from error
+    return x, y
 
 
 def parse_config(text: str) -> dict[str, str]:
@@ -158,6 +198,7 @@ class Window:
         self.path_visible: bool = True
         self.wall_color: int = 0
         self.background: bytes | None = None
+        self.draw_error: Exception | None = None
 
         self.api: Any = import_module("mlx").Mlx()
         self.mlx: Any = self.api.mlx_init()
@@ -204,7 +245,8 @@ class Window:
             self.pixels, _, self.stride, _ = self.api.mlx_get_data_addr(
                 self.frame
             )
-        except Exception:
+        except BaseException:
+            # Cleanup also runs on interruption; the exception still escapes.
             self.close()
             raise
 
@@ -242,14 +284,31 @@ class Window:
         # Mlx retains the bound methods; this call keeps their owner alive.
         try:
             _ = self.api.mlx_key_hook(self.window, self.key, None)
-            _ = self.api.mlx_expose_hook(self.window, self.draw, None)
+            _ = self.api.mlx_expose_hook(self.window, self.redraw, None)
             _ = self.api.mlx_hook(
                 self.window, 33, 0, self.api.mlx_loop_exit, self.mlx
             )
             self.draw()
             _ = self.api.mlx_loop(self.mlx)
+            # Re-raise only after returning from the C callback boundary.
+            if self.draw_error is not None:
+                raise self.draw_error
         finally:
             self.close()
+
+    def redraw(self, _state: object | None = None) -> None:
+        """Stop the event loop if a callback cannot draw the maze.
+
+        Args:
+            _state: Unused MLX callback argument.
+        """
+        if self.draw_error is not None:
+            return
+        try:
+            self.draw()
+        except Exception as error:  # noqa: BLE001
+            self.draw_error = error
+            _ = self.api.mlx_loop_exit(self.mlx)
 
     def close(self) -> None:
         """Release images before their window, and the MLX context last."""
@@ -350,7 +409,9 @@ class Window:
                 self.background = None
             else:
                 return
-            self.draw()
+            self.redraw()
+        except MemoryError:
+            print("Error: not enough memory", file=sys.stderr)
         except Exception as error:  # noqa: BLE001
             print(f"Error: {error}", file=sys.stderr)
 
