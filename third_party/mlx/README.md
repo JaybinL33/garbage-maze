@@ -2,7 +2,6 @@
 
 과제와 함께 제공된 `mlx-2.2.tgz`의 Ubuntu x86-64 wheel을 수정 없이 사용합니다.
 파일명은 `py3-none-any`이지만 내부의 `libmlx.so`는 Linux x86-64 바이너리입니다.
-PyPI의 동명 `mlx`는 다른 프로젝트이므로 사용하지 않습니다.
 
 - 파일: `ubuntu/mlx-2.2-py3-none-any.whl`
 - SHA-256: `7a1a44b50b6295f574522ba1a1e589632c6299d193dec57c951e8fdfb3337195`
