@@ -12,8 +12,21 @@ license = "MIT"
 license-files = ["LICENSE.md"]
 authors = [{name = "jungblee"}, {name = "hyunlee"}]
 
+[dependency-groups]
+dev = ["flake8>=6,<8", "mypy>=1.8,<2", "mlx==2.2"]
+
+[tool.uv]
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[tool.uv.sources]
+mlx = {path = "third_party/mlx/ubuntu/mlx-2.2-py3-none-any.whl"}
+
 [tool.setuptools]
 packages = ["mazegen"]
 
 [tool.setuptools.package-data]
 mazegen = ["README.md"]
+
+[tool.mypy]
+python_version = "3.10"
+exclude = ["build/", ".venv/"]
