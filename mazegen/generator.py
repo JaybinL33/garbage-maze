@@ -35,7 +35,7 @@ class MazeGenerator:
         self,
         width: int,
         height: int,
-        entry: Cell,
+        entry_cell: Cell,
         exit_cell: Cell,
         *,
         rng: random.Random,
@@ -46,7 +46,7 @@ class MazeGenerator:
         Args:
             width: Positive number of columns.
             height: Positive number of rows.
-            entry: In-bounds (x, y) start, outside the closed 42 cells.
+            entry_cell: In-bounds (x, y) start, outside the closed 42 cells.
             exit_cell: Different in-bounds (x, y) end, outside those cells.
             rng: Caller-owned random stream to consume, not reset or retain.
             perfect: True keeps a tree; False adds loops at dead ends first.
@@ -64,13 +64,13 @@ class MazeGenerator:
         # Check the requested size and endpoints before allocating the maze.
         if width <= 0 or height <= 0:
             raise ValueError("WIDTH and HEIGHT must be positive")
-        for name, (x, y) in (("ENTRY", entry), ("EXIT", exit_cell)):
+        for name, (x, y) in (("ENTRY", entry_cell), ("EXIT", exit_cell)):
             if not (0 <= x < width and 0 <= y < height):
                 raise ValueError(f"{name} {(x, y)} is outside the maze")
-        if entry == exit_cell:
+        if entry_cell == exit_cell:
             raise ValueError("ENTRY and EXIT must be different")
 
-        start = entry[1] * width + entry[0]
+        start = entry_cell[1] * width + entry_cell[0]
         end = exit_cell[1] * width + exit_cell[0]
         pattern = _pattern_cells(width, height, perfect=perfect)
         if start in pattern or end in pattern:
@@ -112,7 +112,7 @@ class MazeGenerator:
             row_end = row_start + width
             rows.append(bytes(walls[row_start:row_end]))
         self.walls: tuple[bytes, ...] = tuple(rows)
-        self.entry: Cell = entry
+        self.entry: Cell = entry_cell
         self.exit: Cell = exit_cell
         self.path: tuple[Cell, ...] = path
 

@@ -192,11 +192,12 @@ print(maze.path)
 print(bool(maze.walls[0][0] & EAST_BIT))
 ```
 
-앞의 네 인자는 크기와 시작·끝 좌표입니다. `rng`는 필수 키워드 인자이고,
-`perfect`의 기본값은 `False`입니다. 같은 `rng`를 다시 전달하면 난수 흐름이
-이어집니다. `walls[y][x]`가 벽 코드이며, `path`는 시작과 끝을 포함한 최단 경로의
-`(x, y)` 좌표 튜플입니다. [패키지 사용 설명](mazegen/README.md)에 모든 매개변수와
-반환 구조, 예외와 제한을 정리했습니다.
+앞의 네 인자는 `width`, `height`, `entry_cell`, `exit_cell`입니다.
+`rng`는 필수 키워드 인자이고, `perfect`의 기본값은 `False`입니다.
+같은 `rng`를 다시 전달하면 난수 흐름이 이어집니다. `walls[y][x]`가 벽 코드이며,
+`path`는 시작과 끝을 포함한 최단 경로의 `(x, y)` 좌표 튜플입니다.
+[패키지 사용 설명](mazegen/README.md)에 모든 매개변수와 반환 구조, 예외와 제한을
+정리했습니다.
 
 ## License
 

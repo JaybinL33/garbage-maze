@@ -45,10 +45,10 @@ def main(arguments: list[str]) -> int:
     try:
         config = parse_config(Path(arguments[0]).read_text(encoding="utf-8"))
         width, height = int(config["WIDTH"]), int(config["HEIGHT"])
-        entry_x, entry_y = map(int, config["ENTRY"].split(","))
-        exit_x, exit_y = map(int, config["EXIT"].split(","))
-        entry = (entry_x, entry_y)
-        exit_cell = (exit_x, exit_y)
+        x, y = map(int, config["ENTRY"].split(","))
+        entry_cell = (x, y)
+        x, y = map(int, config["EXIT"].split(","))
+        exit_cell = (x, y)
         perfect_text = config["PERFECT"]
         if perfect_text not in ("True", "False"):
             raise ValueError("PERFECT must be True or False")
@@ -70,7 +70,7 @@ def main(arguments: list[str]) -> int:
             maze = MazeGenerator(
                 width,
                 height,
-                entry,
+                entry_cell,
                 exit_cell,
                 rng=rng,
                 perfect=perfect_text == "True",

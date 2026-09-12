@@ -35,7 +35,7 @@ print(bool(maze.walls[0][0] & EAST_BIT))
 | 이름 | 의미 |
 | --- | --- |
 | `width`, `height` | 양의 정수인 가로·세로 칸 수 |
-| `entry`, `exit_cell` | 서로 다른 시작·끝 좌표 `(x, y)` |
+| `entry_cell`, `exit_cell` | 서로 다른 시작·끝 좌표 `(x, y)` |
 | `rng` | 필수 키워드 인자. 호출자가 만든 `random.Random` 객체 |
 | `perfect` | 키워드 인자. 기본값 `False`; `True`이면 순환이 없는 미로 |
 
