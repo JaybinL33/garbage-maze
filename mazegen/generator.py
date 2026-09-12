@@ -107,10 +107,11 @@ class MazeGenerator:
 
         # Solve before converting working cell numbers into public rows.
         path = _solve_bfs(width, walls, start, end)
-        self.walls: tuple[bytes, ...] = tuple(
-            bytes(walls[row_start : row_start + width])  # noqa: E203
-            for row_start in range(0, cell_count, width)
-        )
+        rows: list[bytes] = []
+        for row_start in range(0, cell_count, width):
+            row_end = row_start + width
+            rows.append(bytes(walls[row_start:row_end]))
+        self.walls: tuple[bytes, ...] = tuple(rows)
         self.entry: Cell = entry
         self.exit: Cell = exit_cell
         self.path: tuple[Cell, ...] = path
