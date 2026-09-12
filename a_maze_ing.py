@@ -34,7 +34,7 @@ def main(arguments: list[str]) -> int:
         arguments: Command-line arguments without the program name.
 
     Returns:
-        Zero after normal window exit, or one after a reported error.
+        Zero after the window session returns; one if main reports an error.
     """
     if len(arguments) != 1:
         print("Usage: python3 a_maze_ing.py <config_file>", file=sys.stderr)
@@ -55,11 +55,9 @@ def main(arguments: list[str]) -> int:
     except KeyError as error:
         print(f"Error: missing config key {error.args[0]}", file=sys.stderr)
         return 1
-    except MemoryError:
-        print("Error: not enough memory", file=sys.stderr)
-        return 1
     except Exception as error:  # noqa: BLE001
-        print(f"Error: {error}", file=sys.stderr)
+        message = str(error) or type(error).__name__
+        print(f"Error: {message}", file=sys.stderr)
         return 1
 
     try:
@@ -85,11 +83,9 @@ def main(arguments: list[str]) -> int:
         if not any(ALL_WALLS in row for row in maze.walls):
             print("Error: maze is too small for 42", file=sys.stderr)
         Window(maze, generate_and_save).run()
-    except MemoryError:
-        print("Error: not enough memory", file=sys.stderr)
-        return 1
     except Exception as error:  # noqa: BLE001
-        print(f"Error: {error}", file=sys.stderr)
+        message = str(error) or type(error).__name__
+        print(f"Error: {message}", file=sys.stderr)
         return 1
     return 0
 
@@ -198,7 +194,6 @@ class Window:
         self.path_visible: bool = True
         self.wall_color: int = 0
         self.background: bytes | None = None
-        self.draw_error: Exception | None = None
 
         self.api: Any = import_module("mlx").Mlx()
         self.mlx: Any = self.api.mlx_init()
@@ -290,24 +285,20 @@ class Window:
             )
             self.draw()
             _ = self.api.mlx_loop(self.mlx)
-            # Re-raise only after returning from the C callback boundary.
-            if self.draw_error is not None:
-                raise self.draw_error
         finally:
             self.close()
 
     def redraw(self, _state: object | None = None) -> None:
-        """Stop the event loop if a callback cannot draw the maze.
+        """Report a drawing failure and ask the event loop to stop.
 
         Args:
             _state: Unused MLX callback argument.
         """
-        if self.draw_error is not None:
-            return
         try:
             self.draw()
         except Exception as error:  # noqa: BLE001
-            self.draw_error = error
+            message = str(error) or type(error).__name__
+            print(f"Error: {message}", file=sys.stderr)
             _ = self.api.mlx_loop_exit(self.mlx)
 
     def close(self) -> None:
@@ -410,10 +401,9 @@ class Window:
             else:
                 return
             self.redraw()
-        except MemoryError:
-            print("Error: not enough memory", file=sys.stderr)
         except Exception as error:  # noqa: BLE001
-            print(f"Error: {error}", file=sys.stderr)
+            message = str(error) or type(error).__name__
+            print(f"Error: {message}", file=sys.stderr)
 
 
 if __name__ == "__main__":
