@@ -42,10 +42,11 @@ def main(arguments: list[str]) -> int:
         print("Usage: python3 a_maze_ing.py <config_file>", file=sys.stderr)
         return 1
 
-    # Missing keys belong to configuration errors, not to later callbacks.
+    # Read and convert settings now, so callbacks never interpret config text.
     try:
         config = parse_config(Path(arguments[0]).read_text(encoding="utf-8"))
         width, height = int(config["WIDTH"]), int(config["HEIGHT"])
+        # Unpacking requires exactly two coordinates, not an arbitrary tuple.
         x, y = map(int, config["ENTRY"].split(","))
         entry_cell = (x, y)
         x, y = map(int, config["EXIT"].split(","))
@@ -53,6 +54,7 @@ def main(arguments: list[str]) -> int:
         perfect_text = config["PERFECT"]
         if perfect_text not in ("True", "False"):
             raise ValueError("PERFECT must be True or False")
+        # bool("False") would be True: compare the spelling instead.
         perfect = perfect_text == "True"
         output = Path(config["OUTPUT_FILE"])
         seed = int(config["SEED"]) if "SEED" in config else None
@@ -65,10 +67,11 @@ def main(arguments: list[str]) -> int:
         return 1
 
     try:
+        # Seed once per session; R continues the stream instead of resetting.
         rng = Random(seed)  # noqa: S311
 
         def generate_and_save() -> MazeGenerator:
-            """Generate with the session RNG and return only after saving."""
+            """Create the next maze in the session's random sequence."""
             maze = MazeGenerator(
                 width,
                 height,
@@ -77,10 +80,12 @@ def main(arguments: list[str]) -> int:
                 rng=rng,
                 perfect=perfect,
             )
+            # A failed save must not replace the maze displayed by Window.
             _ = output.write_text(encode_maze(maze), encoding="utf-8")
             return maze
 
         maze = generate_and_save()
+        # Only glyph cells remain fully walled after generation.
         if not any(ALL_WALLS in row for row in maze.walls):
             print("Error: maze is too small for 42", file=sys.stderr)
         return Window(maze, generate_and_save).run()
@@ -95,6 +100,8 @@ def main(arguments: list[str]) -> int:
 
 def parse_config(text: str) -> dict[str, str]:
     """Read KEY=VALUE lines, ignoring blank lines and full-line comments.
+
+    Check syntax and known names here; main checks required keys and values.
 
     Args:
         text: Complete configuration contents, not a filename.
@@ -112,6 +119,7 @@ def parse_config(text: str) -> dict[str, str]:
             continue
         if "=" not in line:
             raise ValueError(f"line {line_num}: missing '=' delimiter")
+        # A value, such as an output filename, may contain another '='.
         key, value = line.split("=", 1)
         key = key.strip()
         if key not in _KEYS:
@@ -130,7 +138,9 @@ def encode_maze(maze: MazeGenerator) -> str:
         Hex wall rows, a blank line, endpoints, and NESW moves,
         with a final newline.
     """
+    # One hex digit per cell, preserving row and column order.
     wall_rows = ["".join(f"{wall:X}" for wall in row) for row in maze.walls]
+    # Subtract adjacent path coordinates to obtain a direction: (1, 0) -> E.
     moves = "".join(
         _MOVES[next_x - x, next_y - y]
         for (x, y), (next_x, next_y) in pairwise(maze.path)
@@ -168,6 +178,7 @@ class Window:
         self.wall_color: int = 0
         self.background: bytes | None = None
 
+        # Loading this module alone must not load the native GUI library.
         self.api: Any = import_module("mlx").Mlx()
         self.mlx: Any = self.api.mlx_init()
         if self.mlx is None:
@@ -175,6 +186,7 @@ class Window:
 
         self.window: int | None = None
         self.frame: int | None = None
+        # Python GC does not destroy MLX images; keep handles for close().
         self.images: list[int] = []
         self.tiles: dict[str, list[tuple[int, int, bytes]]] = {}
         try:
@@ -214,17 +226,21 @@ class Window:
                 raise RuntimeError(f"cannot load asset {name}")
             self.images.append(image)
             pixels, _, stride, pixel_format = self.api.mlx_get_data_addr(image)
+            # MLX uses 4-byte pixels: BGRA for format 0, ARGB for format 1.
             alpha_offset = 3 if pixel_format == 0 else 0
             self.tiles[name] = []
             for y in range(height):
+                # stride includes row padding; keep only the actual pixels.
                 row_start = y * stride
                 row_end = row_start + width * 4
                 row = bytes(pixels[row_start:row_end])
-                # Our assets have one solid segment per row, or an empty row.
+                # Asset rows have alpha 0/255 and at most one opaque run.
+                # Every fourth byte is one pixel's alpha, not its colour.
                 alpha = row[alpha_offset::4]
                 left = alpha.find(b"\xff")
                 if left == -1:
                     continue
+                # End just after the last opaque pixel, not at its start.
                 byte_start = left * 4
                 byte_end = (alpha.rfind(b"\xff") + 1) * 4
                 self.tiles[name].append((left, y, row[byte_start:byte_end]))
@@ -237,10 +253,11 @@ class Window:
         Returns:
             Zero when the loop ends; one if initial drawing fails.
         """
-        # Mlx retains the bound methods; this call keeps their owner alive.
+        # The wrapper retains callback objects, including their bound self.
         try:
             _ = self.api.mlx_key_hook(self.window, self.key, None)
             _ = self.api.mlx_expose_hook(self.window, self.draw, None)
+            # A close request ends the loop; cleanup waits for its return.
             _ = self.api.mlx_hook(
                 self.window, 33, 0, self.api.mlx_loop_exit, self.mlx
             )
@@ -253,6 +270,7 @@ class Window:
 
     def close(self) -> None:
         """Release images before their window, and the MLX context last."""
+        # Invalidate the borrowed view before freeing its native image memory.
         if hasattr(self, "pixels"):
             self.pixels.release()
         for image in reversed(self.images):
@@ -273,24 +291,28 @@ class Window:
             True after presentation completes; False on a reported error.
         """
         try:
+            # Build or restore the maze layer; key() invalidates it on changes.
             if self.background is None:
                 wall_tile = f"wall-{self.wall_color}.png"
+                # Paint closed cells, then join them across open shared walls.
                 for y, row in enumerate(self.maze.walls):
                     for x, walls in enumerate(row):
                         px, py = x * _CELL, y * _CELL
                         self.draw_tile(wall_tile, px, py)
                         if walls == ALL_WALLS:
                             self.draw_tile("pattern.png", px, py)
-                        # Join the tiles already drawn above and left.
+                        # Open tiles start at the cell above or to the left.
+                        # Paint both cells before drawing their opening.
                         if not walls & NORTH_BIT:
                             self.draw_tile("open-s.png", px, py - _CELL)
                         if not walls & WEST_BIT:
                             self.draw_tile("open-e.png", px - _CELL, py)
-                # Hiding the path must erase its old pixels.
+                # Cache no markers, so hiding the path erases its old pixels.
                 self.background = bytes(self.pixels)
             else:
                 self.pixels[:] = self.background
 
+            # Draw the path first so entry and exit markers stay on top.
             if self.path_visible:
                 for x, y in self.maze.path:
                     self.draw_tile("path.png", x * _CELL, y * _CELL)
@@ -298,6 +320,7 @@ class Window:
             self.draw_tile("entry.png", x * _CELL, y * _CELL)
             x, y = self.maze.exit
             self.draw_tile("exit.png", x * _CELL, y * _CELL)
+            # Present one composed image, not each tile separately.
             _ = self.api.mlx_put_image_to_window(
                 self.mlx, self.window, self.frame, 0, 0
             )
@@ -306,6 +329,7 @@ class Window:
                 self.mlx, self.api.SYNC_WIN_COMPLETED, self.window
             )
         except Exception as error:  # noqa: BLE001
+            # Report here: exceptions cannot propagate through a C callback.
             message = str(error) or type(error).__name__
             print(f"Error: {message}", file=sys.stderr)
             _ = self.api.mlx_loop_exit(self.mlx)
@@ -321,6 +345,7 @@ class Window:
             pixel_y: Tile origin in frame pixels, measured from the top.
         """
         for tile_x, tile_y, segment in self.tiles[name]:
+            # Locate the frame row in bytes, then the pixel within that row.
             offset = (pixel_y + tile_y) * self.stride + (pixel_x + tile_x) * 4
             end = offset + len(segment)
             self.pixels[offset:end] = segment
@@ -345,6 +370,7 @@ class Window:
                 self.wall_color = 1 - self.wall_color
                 self.background = None
             elif pressed == "r":
+                # Assign only after generation and saving both succeed.
                 self.maze = self.regenerate()
                 self.background = None
             else:
@@ -353,8 +379,10 @@ class Window:
             message = str(error) or type(error).__name__
             print(f"Error: {message}", file=sys.stderr)
             return
+        # draw() reports its own errors; keep it outside this handler.
         _ = self.draw()
 
 
+# Direct execution turns main's return value into a shell exit status.
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
