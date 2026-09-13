@@ -7,7 +7,6 @@ from typing import TypeAlias
 Cell: TypeAlias = tuple[int, int]
 
 # Coordinates are (x, y). During generation, cell = y * width + x.
-# The four bits always refer to the north, east, south, and west walls.
 NORTH_BIT, EAST_BIT, SOUTH_BIT, WEST_BIT = 1, 2, 4, 8
 ALL_WALLS = 15
 _MIN_LOOPS = 2
@@ -110,7 +109,6 @@ class MazeGenerator:
 
         # Solve on the flat grid, then keep only the completed result.
         path = _solve_bfs(width, walls, start, end)
-        # Immutable rows still contain wall codes, not hexadecimal text.
         rows: list[bytes] = []
         for row_start in range(0, cell_count, width):
             row_end = row_start + width
@@ -146,7 +144,6 @@ def _pattern_cells(width: int, height: int, *, perfect: bool) -> set[int]:
     # Floor division chooses the upper-left placement when centring ties.
     left = (width - _PATTERN_WIDTH) // 2
     top = (height - _PATTERN_HEIGHT) // 2
-    # Map the centred glyph's # marks to maze cell indices.
     return {
         (top + y) * width + left + x
         for y, row in enumerate(_PATTERN_42)
@@ -174,12 +171,11 @@ def _carve_dfs(
         start: Flat cell index at which DFS begins.
         rng: Random stream used to choose unvisited neighbours.
     """
-    # A vertical step spans width cells; a horizontal step spans one.
     dirs = tuple(
         (dx + dy * width, wall_bit, back_bit)
         for dx, dy, wall_bit, back_bit in _DIRECTIONS
     )
-    stack = [start]  # The current route; popping returns to the previous cell.
+    stack = [start]
     while stack:
         cell = stack[-1]
         # An arrival opens a wall, marking the cell visited without a set.
@@ -194,7 +190,6 @@ def _carve_dfs(
             _ = stack.pop()
             continue
         neighbor, wall_bit, back_bit = rng.choice(unvisited)
-        # Clear both copies of the shared wall; 0 means an open passage.
         walls[cell] &= ~wall_bit
         walls[neighbor] &= ~back_bit
         stack.append(neighbor)
@@ -221,14 +216,13 @@ def _braid(
     )
     loops_added = 0
 
-    # Pass 1: three walls mean one way out; add the first permitted extra way.
+    # Pass 1: give each removable dead end another exit.
     # Opening only adds exits, so no earlier cell needs another pass.
     # DFS + row-major + N/E/S/W is what excludes fully open 3x3 areas here.
     # Changing the tree algorithm or either order needs a new argument.
     for cell in range(len(walls)):
         if walls[cell].bit_count() != 3:
             continue
-        # Only consider walls that still exist and lead to a usable cell.
         choices = allowed_mask[cell] & walls[cell]
         for offset, wall_bit, back_bit in dirs:
             if choices & wall_bit:
@@ -237,9 +231,8 @@ def _braid(
                 loops_added += 1
                 break
 
-    # Pass 2: each extra passage adds one independent loop to a connected maze.
-    # Small mazes may still need extra loops after the dead-end pass.
-    # Stop at two total loops: a fully open 3x3 needs four (12 edges - 9 + 1).
+    # Pass 2: add any missing loops; each extra passage adds one.
+    # Stop at two total loops: a fully open 3x3 needs four (12 - 9 + 1).
     if loops_added >= _MIN_LOOPS:
         return
     for cell, mask in enumerate(allowed_mask):
@@ -289,7 +282,7 @@ def _solve_bfs(
                 parent[neighbor] = cell
                 queue.append(neighbor)
 
-    # Follow parents backwards; reverse and convert to (x, y) for the caller.
+    # Reconstruct the route.
     route = [end]
     while route[-1] != start:
         route.append(parent[route[-1]])
