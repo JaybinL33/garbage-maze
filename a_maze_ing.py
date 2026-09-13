@@ -44,8 +44,7 @@ def main(arguments: list[str]) -> int:
 
     # Missing keys belong to configuration errors, not to later callbacks.
     try:
-        text = Path(arguments[0]).read_text(encoding="utf-8")
-        config = parse_config(text)
+        config = parse_config(Path(arguments[0]).read_text(encoding="utf-8"))
         width, height = int(config["WIDTH"]), int(config["HEIGHT"])
         x, y = map(int, config["ENTRY"].split(","))
         entry_cell = (x, y)
@@ -78,8 +77,7 @@ def main(arguments: list[str]) -> int:
                 rng=rng,
                 perfect=perfect,
             )
-            text = encode_maze(maze)
-            _ = output.write_text(text, encoding="utf-8")
+            _ = output.write_text(encode_maze(maze), encoding="utf-8")
             return maze
 
         maze = generate_and_save()
@@ -133,21 +131,20 @@ def encode_maze(maze: MazeGenerator) -> str:
         with a final newline.
     """
     wall_rows = ["".join(f"{wall:X}" for wall in row) for row in maze.walls]
-    entry_str = f"{maze.entry[0]},{maze.entry[1]}"
-    exit_str = f"{maze.exit[0]},{maze.exit[1]}"
     moves = "".join(
         _MOVES[next_x - x, next_y - y]
         for (x, y), (next_x, next_y) in pairwise(maze.path)
     )
-    lines = [
-        *wall_rows,
-        "",
-        entry_str,
-        exit_str,
-        moves,
-        "",  # End the final line with a newline.
-    ]
-    return "\n".join(lines)
+    return "\n".join(
+        [
+            *wall_rows,
+            "",
+            f"{maze.entry[0]},{maze.entry[1]}",
+            f"{maze.exit[0]},{maze.exit[1]}",
+            moves,
+            "",  # End the final line with a newline.
+        ]
+    )
 
 
 # --- Own one MLX session and its images ---
@@ -181,10 +178,9 @@ class Window:
         self.images: list[int] = []
         self.tiles: dict[str, list[tuple[int, int, bytes]]] = {}
         try:
-            columns, rows = len(initial.walls[0]), len(initial.walls)
             # Include the 2px outer wall beyond the last row and column.
-            win_w = columns * _CELL + 2
-            win_h = rows * _CELL + 2
+            win_w = len(initial.walls[0]) * _CELL + 2
+            win_h = len(initial.walls) * _CELL + 2
             self.window = self.api.mlx_new_window(
                 self.mlx, win_w, win_h, "A-Maze-ing"
             )
@@ -229,11 +225,9 @@ class Window:
                 left = alpha.find(b"\xff")
                 if left == -1:
                     continue
-                right = alpha.rfind(b"\xff") + 1
                 byte_start = left * 4
-                byte_end = right * 4
-                segment = row[byte_start:byte_end]
-                self.tiles[name].append((left, y, segment))
+                byte_end = (alpha.rfind(b"\xff") + 1) * 4
+                self.tiles[name].append((left, y, row[byte_start:byte_end]))
 
     # --- Callbacks may use the window until the event loop returns ---
 
