@@ -6,7 +6,7 @@ from .generator import (
     NORTH_BIT,
     SOUTH_BIT,
     WEST_BIT,
-    Cell,
+    Coord,
     MazeGenerator,
 )
 
@@ -16,6 +16,6 @@ __all__ = [
     "NORTH_BIT",
     "SOUTH_BIT",
     "WEST_BIT",
-    "Cell",
+    "Coord",
     "MazeGenerator",
 ]

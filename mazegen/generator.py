@@ -4,7 +4,7 @@ import random
 from collections import deque
 from typing import TypeAlias
 
-Cell: TypeAlias = tuple[int, int]
+Coord: TypeAlias = tuple[int, int]
 
 # Coordinates are (x, y). During generation, cell = y * width + x.
 NORTH_BIT, EAST_BIT, SOUTH_BIT, WEST_BIT = 1, 2, 4, 8
@@ -35,8 +35,8 @@ class MazeGenerator:
         self,
         width: int,
         height: int,
-        entry_cell: Cell,
-        exit_cell: Cell,
+        entry_cell: Coord,
+        exit_cell: Coord,
         *,
         rng: random.Random,
         perfect: bool = False,
@@ -114,9 +114,9 @@ class MazeGenerator:
             row_end = row_start + width
             rows.append(bytes(walls[row_start:row_end]))
         self.walls: tuple[bytes, ...] = tuple(rows)
-        self.entry: Cell = entry_cell
-        self.exit: Cell = exit_cell
-        self.path: tuple[Cell, ...] = path
+        self.entry: Coord = entry_cell
+        self.exit: Coord = exit_cell
+        self.path: tuple[Coord, ...] = path
 
 
 # --- Place the closed 42 cells ---
@@ -252,7 +252,7 @@ def _braid(
 
 def _solve_bfs(
     width: int, walls: bytearray, start: int, end: int
-) -> tuple[Cell, ...]:
+) -> tuple[Coord, ...]:
     """Find a shortest path by BFS without changing the maze.
 
     Args:
