@@ -236,7 +236,7 @@ MLX를 대체한 자동 검사는 실제 화면·드라이버 검증을 대신�
 ## Resources
 
 - 과제 원문 A-Maze-ing v2.3 및 함께 제공된 `maze_analyzer.py`.
-- [MiniLibX 2.2의 출처와 라이선스](third_party/mlx/README.md).
+- [MiniLibX 2.2의 출처, API 문서 위치와 라이선스](third_party/mlx/README.md).
 - [MIT: DFS][dfs], [MIT: BFS][bfs] — 그래프 탐색의 기본 원리.
 - [Python random][random], [collections.deque][deque] — 난수 흐름과 BFS 큐.
 - [uv 프로젝트 환경][uv-project], [Python 패키징 가이드][packaging].
