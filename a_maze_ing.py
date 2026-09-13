@@ -44,7 +44,8 @@ def main(arguments: list[str]) -> int:
 
     # Missing keys belong to configuration errors, not to later callbacks.
     try:
-        config = parse_config(Path(arguments[0]).read_text(encoding="utf-8"))
+        text = Path(arguments[0]).read_text(encoding="utf-8")
+        config = parse_config(text)
         width, height = int(config["WIDTH"]), int(config["HEIGHT"])
         x, y = map(int, config["ENTRY"].split(","))
         entry_cell = (x, y)
@@ -53,6 +54,7 @@ def main(arguments: list[str]) -> int:
         perfect_text = config["PERFECT"]
         if perfect_text not in ("True", "False"):
             raise ValueError("PERFECT must be True or False")
+        perfect = perfect_text == "True"
         output = Path(config["OUTPUT_FILE"])
         seed = int(config["SEED"]) if "SEED" in config else None
     except KeyError as error:
@@ -74,9 +76,10 @@ def main(arguments: list[str]) -> int:
                 entry_cell,
                 exit_cell,
                 rng=rng,
-                perfect=perfect_text == "True",
+                perfect=perfect,
             )
-            _ = output.write_text(encode_maze(maze), encoding="utf-8")
+            text = encode_maze(maze)
+            _ = output.write_text(text, encoding="utf-8")
             return maze
 
         maze = generate_and_save()
@@ -224,12 +227,13 @@ class Window:
                 # Our assets have one solid segment per row, or an empty row.
                 alpha = row[alpha_offset::4]
                 left = alpha.find(b"\xff")
-                if left != -1:
-                    first_byte = left * 4
-                    last_byte = (alpha.rfind(b"\xff") + 1) * 4
-                    self.tiles[name].append(
-                        (left, y, row[first_byte:last_byte])
-                    )
+                if left == -1:
+                    continue
+                right = alpha.rfind(b"\xff") + 1
+                byte_start = left * 4
+                byte_end = right * 4
+                segment = row[byte_start:byte_end]
+                self.tiles[name].append((left, y, segment))
 
     # --- Callbacks may use the window until the event loop returns ---
 
