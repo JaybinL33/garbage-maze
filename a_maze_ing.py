@@ -3,7 +3,6 @@
 
 import sys
 from collections.abc import Callable
-from importlib import import_module
 from itertools import pairwise
 from pathlib import Path
 from random import Random
@@ -173,8 +172,10 @@ class Window:
         self.wall_color: int = 0
         self.background: bytes | None = None
 
-        # Defer native GUI loading until the window is opened.
-        self.api: Any = import_module("mlx").Mlx()
+        # Keep MLX import failures inside main()'s error handling.
+        from mlx import Mlx
+
+        self.api: Any = Mlx()
         self.mlx: Any = self.api.mlx_init()
         if self.mlx is None:
             raise RuntimeError("mlx_init failed")
