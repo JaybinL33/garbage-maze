@@ -141,12 +141,13 @@ def _pattern_cells(width: int, height: int, *, perfect: bool) -> set[int]:
         return set()
     left = (width - _PATTERN_WIDTH) // 2
     top = (height - _PATTERN_HEIGHT) // 2
-    return {
-        (top + y) * width + left + x
-        for y, row in enumerate(_PATTERN_42)
-        for x, mark in enumerate(row)
-        if mark == "#"
-    }
+    cells: set[int] = set()
+    for y, row in enumerate(_PATTERN_42):
+        for x, mark in enumerate(row):
+            if mark == "#":
+                cell = (top + y) * width + left + x
+                cells.add(cell)
+    return cells
 
 
 # --- Open passages within the allowed directions ---
@@ -220,8 +221,9 @@ def _braid(
         choices = allowed_mask[cell] & walls[cell]
         for offset, wall_bit, back_bit in dirs:
             if choices & wall_bit:
+                neighbor = cell + offset
                 walls[cell] &= ~wall_bit
-                walls[cell + offset] &= ~back_bit
+                walls[neighbor] &= ~back_bit
                 loops_added += 1
                 break
 
@@ -235,8 +237,9 @@ def _braid(
         # East and south cover each shared wall once.
         for offset, wall_bit, back_bit in dirs[1:3]:
             if choices & wall_bit:
+                neighbor = cell + offset
                 walls[cell] &= ~wall_bit
-                walls[cell + offset] &= ~back_bit
+                walls[neighbor] &= ~back_bit
                 loops_added += 1
                 if loops_added == _MIN_LOOPS:
                     return
