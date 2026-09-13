@@ -129,13 +129,22 @@ def encode_maze(maze: MazeGenerator) -> str:
         Hex wall rows, a blank line, endpoints, and NESW moves,
         with a final newline.
     """
-    wall_rows = ("".join(f"{wall:X}" for wall in row) for row in maze.walls)
-    endpoints = (f"{x},{y}" for x, y in (maze.entry, maze.exit))
+    wall_rows = ["".join(f"{wall:X}" for wall in row) for row in maze.walls]
+    entry_str = f"{maze.entry[0]},{maze.entry[1]}"
+    exit_str = f"{maze.exit[0]},{maze.exit[1]}"
     moves = "".join(
         _MOVES[next_x - x, next_y - y]
         for (x, y), (next_x, next_y) in pairwise(maze.path)
     )
-    return "\n".join((*wall_rows, "", *endpoints, moves, ""))
+    lines = [
+        *wall_rows,
+        "",
+        entry_str,
+        exit_str,
+        moves,
+        "",  # End the final line with a newline.
+    ]
+    return "\n".join(lines)
 
 
 # --- Own one MLX session and its images ---
