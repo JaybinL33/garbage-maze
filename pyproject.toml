@@ -29,4 +29,5 @@ mazegen = ["README.md"]
 
 [tool.mypy]
 python_version = "3.10"
+mypy_path = "$MYPY_CONFIG_FILE_DIR/typings"
 exclude = ["build/", ".venv/"]

@@ -1,4 +1,3 @@
-# pyright: reportAny=false, reportExplicitAny=false
 """Read a maze request, generate and save it, then open the MLX window."""
 
 import sys
@@ -6,7 +5,6 @@ from collections.abc import Callable
 from itertools import pairwise
 from pathlib import Path
 from random import Random
-from typing import Any
 
 from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, MazeGenerator
 
@@ -175,13 +173,12 @@ class Window:
         # Keep MLX import failures inside main()'s error handling.
         from mlx import Mlx
 
-        self.api: Any = Mlx()
-        self.mlx: Any = self.api.mlx_init()
-        if self.mlx is None:
+        self.api: Mlx = Mlx()
+        mlx = self.api.mlx_init()
+        if mlx is None:
             raise RuntimeError("mlx_init failed")
+        self.mlx: int = mlx
 
-        self.window: int | None = None
-        self.frame: int | None = None
         # Python GC does not destroy MLX images; keep handles for close().
         self.images: list[int] = []
         self.tiles: dict[str, list[tuple[int, int, bytes]]] = {}
@@ -189,17 +186,19 @@ class Window:
             # Include the 2px outer wall beyond the last row and column.
             win_w = len(initial.walls[0]) * _CELL + 2
             win_h = len(initial.walls) * _CELL + 2
-            self.window = self.api.mlx_new_window(
+            window = self.api.mlx_new_window(
                 self.mlx, win_w, win_h, "A-Maze-ing"
             )
-            if self.window is None:
+            if window is None:
                 raise RuntimeError("mlx_new_window failed")
+            self.window: int = window
 
             self._load_tiles()
             # One full-window image; pixels borrows its native memory.
-            self.frame = self.api.mlx_new_image(self.mlx, win_w, win_h)
-            if self.frame is None:
+            frame = self.api.mlx_new_image(self.mlx, win_w, win_h)
+            if frame is None:
                 raise RuntimeError("mlx_new_image failed")
+            self.frame: int = frame
             self.images.append(self.frame)
             self.pixels: memoryview
             self.stride: int
@@ -269,7 +268,7 @@ class Window:
             self.pixels.release()
         for image in reversed(self.images):
             _ = self.api.mlx_destroy_image(self.mlx, image)
-        if self.window is not None:
+        if hasattr(self, "window"):
             _ = self.api.mlx_destroy_window(self.mlx, self.window)
         _ = self.api.mlx_release(self.mlx)
 

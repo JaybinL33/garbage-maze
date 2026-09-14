@@ -45,3 +45,18 @@ pixel_format)`을 반환하며, 마지막 값은 endian이 아니라 픽셀 형�
 앱의 `self.api`는 이 래퍼의 `Mlx` 객체이고, `self.mlx`는 `mlx_init()`이 반환한
 네이티브 컨텍스트 핸들입니다. `Window`, `draw()`, `draw_tile()`은 MLX API가
 아니라 이 프로젝트에서 작성한 코드입니다.
+
+## 프로젝트에서 사용하는 타입 선언
+
+[typings/mlx/mlx.pyi](../../typings/mlx/mlx.pyi)는 앱에서 사용하는 API만
+선언합니다. Pyright가 생성한 초안을 위 wheel의 `mlx.py`와 `docs/mlx.h`에
+맞춰 보완했습니다. 실행 시에는 스텁이 아니라 원래 MLX 패키지를 사용합니다.
+
+핸들을 반환하는 생성 함수는 실패 시 `None`을 반환합니다. 콜백의 `_State`는
+등록할 때 넘긴 `param`과 콜백이 받는 값의 타입이 같다는 뜻입니다. Python
+래퍼는 콜백 반환값을 사용하지 않으며, `mlx_hook`은 현재 사용하는 종료 이벤트
+33만 선언했습니다. 다른 API나 이벤트가 필요해지면 해당 선언을 보완합니다.
+
+basedpyright는 기본 `typings` 경로를 사용하고, mypy는 `pyproject.toml`의
+`mypy_path`로 같은 스텁을 읽습니다. 이 파일은 독립 `mazegen` wheel에 포함하지
+않습니다.
