@@ -6,6 +6,8 @@ from itertools import pairwise
 from pathlib import Path
 from random import Random
 
+from mlx import Mlx
+
 from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, MazeGenerator
 
 _CELL = 16
@@ -155,58 +157,67 @@ def encode_maze(maze: MazeGenerator) -> str:
 class Window:
     """Keep the displayed maze, event callbacks, and native resources alive."""
 
+    maze: MazeGenerator
+    regenerate: Callable[[], MazeGenerator]
+    path_visible: bool
+    wall_color: int
+    background: bytes | None
+    mlx: Mlx
+    mlx_ptr: int
+    win_ptr: int
+    frame_ptr: int
+    images: list[int]
+    tiles: dict[str, list[tuple[int, int, bytes]]]
+    pixels: memoryview
+    size_line: int
+
     def __init__(
         self, initial: MazeGenerator, regenerate: Callable[[], MazeGenerator]
     ) -> None:
-        """Open a fixed-size window, releasing partial resources on failure.
+        """Open a window; release registered resources if setup fails.
 
         Args:
             initial: Completed maze to display first.
             regenerate: Callback returning a newly generated, saved maze.
         """
-        self.maze: MazeGenerator = initial
-        self.regenerate: Callable[[], MazeGenerator] = regenerate
-        self.path_visible: bool = True
-        self.wall_color: int = 0
-        self.background: bytes | None = None
+        self.maze = initial
+        self.regenerate = regenerate
+        self.path_visible = True
+        self.wall_color = 0
+        self.background = None
+        # Prepare ownership records before acquiring any native resources.
+        self.images = []
+        self.tiles = {}
 
-        # Keep MLX import failures inside main()'s error handling.
-        from mlx import Mlx
-
-        self.api: Mlx = Mlx()
-        mlx = self.api.mlx_init()
-        if mlx is None:
-            raise RuntimeError("mlx_init failed")
-        self.mlx: int = mlx
-
-        # Python GC does not destroy MLX images; keep handles for close().
-        self.images: list[int] = []
-        self.tiles: dict[str, list[tuple[int, int, bytes]]] = {}
+        self.mlx = Mlx()
         try:
+            mlx_ptr = self.mlx.mlx_init()
+            if mlx_ptr is None:
+                raise RuntimeError("mlx_init failed")
+            self.mlx_ptr = mlx_ptr
+
             # Include the 2px outer wall beyond the last row and column.
             win_w = len(initial.walls[0]) * _CELL + 2
             win_h = len(initial.walls) * _CELL + 2
-            window = self.api.mlx_new_window(
-                self.mlx, win_w, win_h, "A-Maze-ing"
+            win_ptr = self.mlx.mlx_new_window(
+                self.mlx_ptr, win_w, win_h, "A-Maze-ing"
             )
-            if window is None:
+            if win_ptr is None:
                 raise RuntimeError("mlx_new_window failed")
-            self.window: int = window
+            self.win_ptr = win_ptr
 
             self._load_tiles()
             # One full-window image; pixels borrows its native memory.
-            frame = self.api.mlx_new_image(self.mlx, win_w, win_h)
-            if frame is None:
+            frame_ptr = self.mlx.mlx_new_image(self.mlx_ptr, win_w, win_h)
+            if frame_ptr is None:
                 raise RuntimeError("mlx_new_image failed")
-            self.frame: int = frame
-            self.images.append(self.frame)
-            self.pixels: memoryview
-            self.stride: int
-            self.pixels, _, self.stride, _ = self.api.mlx_get_data_addr(
-                self.frame
+            self.frame_ptr = frame_ptr
+            self.images.append(self.frame_ptr)
+            self.pixels, _, self.size_line, _ = self.mlx.mlx_get_data_addr(
+                self.frame_ptr
             )
         except BaseException:
-            # Release partial resources even on KeyboardInterrupt.
+            # Only resources recorded on self can be released here.
             self.close()
             raise
 
@@ -214,19 +225,21 @@ class Window:
         """Load each PNG once and keep its visible row segments for drawing."""
         assets = Path(__file__).parent / "assets"
         for name in _ASSETS:
-            image, width, height = self.api.mlx_png_file_to_image(
-                self.mlx, str(assets / name)
+            image, width, height = self.mlx.mlx_png_file_to_image(
+                self.mlx_ptr, str(assets / name)
             )
             if image is None:
                 raise RuntimeError(f"cannot load asset {name}")
             self.images.append(image)
-            pixels, _, stride, pixel_format = self.api.mlx_get_data_addr(image)
+            pixels, _, size_line, pixel_format = self.mlx.mlx_get_data_addr(
+                image
+            )
             # MLX uses 4-byte pixels: BGRA for format 0, ARGB for format 1.
             alpha_offset = 3 if pixel_format == 0 else 0
             self.tiles[name] = []
             for y in range(height):
-                # stride includes row padding; keep only the actual pixels.
-                row_start = y * stride
+                # Row size includes padding; keep only the actual pixels.
+                row_start = y * size_line
                 row_end = row_start + width * 4
                 row = bytes(pixels[row_start:row_end])
                 # Asset rows have alpha 0/255 and at most one opaque run.
@@ -248,29 +261,33 @@ class Window:
         """
         # The wrapper retains callback objects, including their bound self.
         try:
-            _ = self.api.mlx_key_hook(self.window, self.key, None)
-            _ = self.api.mlx_expose_hook(self.window, self.draw, None)
+            _ = self.mlx.mlx_key_hook(self.win_ptr, self.key, None)
+            _ = self.mlx.mlx_expose_hook(self.win_ptr, self.draw, None)
             # A close request ends the loop; cleanup waits for its return.
-            _ = self.api.mlx_hook(
-                self.window, 33, 0, self.api.mlx_loop_exit, self.mlx
+            _ = self.mlx.mlx_hook(
+                self.win_ptr, 33, 0, self.mlx.mlx_loop_exit, self.mlx_ptr
             )
             if not self.draw():
                 return 1
-            _ = self.api.mlx_loop(self.mlx)
+            _ = self.mlx.mlx_loop(self.mlx_ptr)
             return 0
         finally:
             self.close()
 
     def close(self) -> None:
         """Release images before their window, and the MLX context last."""
+        # There is no recorded session handle available for cleanup.
+        if not hasattr(self, "mlx_ptr"):
+            return
         # Invalidate the borrowed view before freeing its native image memory.
         if hasattr(self, "pixels"):
             self.pixels.release()
         for image in reversed(self.images):
-            _ = self.api.mlx_destroy_image(self.mlx, image)
-        if hasattr(self, "window"):
-            _ = self.api.mlx_destroy_window(self.mlx, self.window)
-        _ = self.api.mlx_release(self.mlx)
+            _ = self.mlx.mlx_destroy_image(self.mlx_ptr, image)
+        if hasattr(self, "win_ptr"):
+            _ = self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
+        _ = self.mlx.mlx_release(self.mlx_ptr)
+        del self.mlx_ptr
 
     # --- Build the background, add markers, then present the frame ---
 
@@ -312,18 +329,18 @@ class Window:
             self.draw_tile("entry.png", x * _CELL, y * _CELL)
             x, y = self.maze.exit
             self.draw_tile("exit.png", x * _CELL, y * _CELL)
-            _ = self.api.mlx_put_image_to_window(
-                self.mlx, self.window, self.frame, 0, 0
+            _ = self.mlx.mlx_put_image_to_window(
+                self.mlx_ptr, self.win_ptr, self.frame_ptr, 0, 0
             )
             # Finish the GPU read before an event edits this frame.
-            _ = self.api.mlx_sync(
-                self.mlx, self.api.SYNC_WIN_COMPLETED, self.window
+            _ = self.mlx.mlx_sync(
+                self.mlx_ptr, self.mlx.SYNC_WIN_COMPLETED, self.win_ptr
             )
         except Exception as error:  # noqa: BLE001
             # Report here: exceptions cannot propagate through a C callback.
             message = str(error) or type(error).__name__
             print(f"Error: {message}", file=sys.stderr)
-            _ = self.api.mlx_loop_exit(self.mlx)
+            _ = self.mlx.mlx_loop_exit(self.mlx_ptr)
             return False
         return True
 
@@ -336,7 +353,9 @@ class Window:
             pixel_y: Tile origin in frame pixels, measured from the top.
         """
         for tile_x, tile_y, segment in self.tiles[name]:
-            offset = (pixel_y + tile_y) * self.stride + (pixel_x + tile_x) * 4
+            offset = (pixel_y + tile_y) * self.size_line + (
+                pixel_x + tile_x
+            ) * 4
             end = offset + len(segment)
             self.pixels[offset:end] = segment
 
@@ -351,7 +370,7 @@ class Window:
         """
         try:
             if keycode == 65_307:
-                _ = self.api.mlx_loop_exit(self.mlx)
+                _ = self.mlx.mlx_loop_exit(self.mlx_ptr)
                 return
             pressed = chr(keycode).lower() if keycode < 256 else ""
             if pressed == "p":

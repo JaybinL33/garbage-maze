@@ -31,7 +31,7 @@ Python 래퍼와 C API 문서는 위 wheel에 함께 들어 있습니다. `make 
 | `mlx.py` | 실제 Python 메서드의 인자·반환값, 콜백 연결 |
 | `docs/mlx.h` | C API 전체 목록과 상수, 자원과 이미지 형식의 계약 |
 | `docs/mlx.3`, `docs/mlx_new_window.3` | 초기화·해제, 창 생성·파괴 |
-| `docs/mlx_new_image.3` | PNG 읽기, 이미지 메모리·stride·픽셀 형식, 화면 표시 |
+| `docs/mlx_new_image.3` | PNG 읽기, 이미지 메모리·size_line·픽셀 형식, 화면 표시 |
 | `docs/mlx_loop.3` | 이벤트 루프, 키·노출·일반 콜백, 루프 종료 |
 | `docs/mlx_extra.3` | `mlx_sync`와 동기화 명령 |
 | `test/simple_test.py` | 창 생성 → 콜백 등록 → 이벤트 루프의 제공 예제 |
@@ -39,12 +39,15 @@ Python 래퍼와 C API 문서는 위 wheel에 함께 들어 있습니다. `make 
 `.3`은 C API의 man 문서입니다. 편집기로 읽거나 그 파일이 있는 `docs` 폴더에서
 `man -l mlx_new_image.3`처럼 열 수 있습니다. Python 호출 형태는 `mlx.py`를
 함께 확인해야 합니다. C에서 출력 포인터로 받는 값은 Python에서 튜플로 반환합니다.
-예를 들어 `mlx_get_data_addr(image)`는 `(memoryview, bits_per_pixel, stride,
+예를 들어 `mlx_get_data_addr(image)`는 `(memoryview, bits_per_pixel, size_line,
 pixel_format)`을 반환하며, 마지막 값은 endian이 아니라 픽셀 형식입니다.
 
-앱의 `self.api`는 이 래퍼의 `Mlx` 객체이고, `self.mlx`는 `mlx_init()`이 반환한
-네이티브 컨텍스트 핸들입니다. `Window`, `draw()`, `draw_tile()`은 MLX API가
-아니라 이 프로젝트에서 작성한 코드입니다.
+앱의 `self.mlx`는 이 래퍼의 `Mlx` 객체이고, `self.mlx_ptr`는 `mlx_init()`이
+반환한 네이티브 컨텍스트 핸들입니다. `self.win_ptr`는 창 핸들,
+`self.frame_ptr`는 화면 전체를 조립하는 이미지 핸들입니다. `self.size_line`은
+프레임의 한 행이 메모리에서 차지하는 바이트 수이며, 패딩도 포함합니다.
+`Window`, `draw()`, `draw_tile()`은 MLX API가 아니라 이 프로젝트에서 작성한
+코드입니다.
 
 ## 프로젝트에서 사용하는 타입 선언
 

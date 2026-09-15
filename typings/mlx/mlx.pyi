@@ -6,7 +6,7 @@ from typing import Literal, TypeVar
 _State = TypeVar("_State")
 
 class Mlx:
-    SYNC_WIN_COMPLETED: int = 3
+    SYNC_WIN_COMPLETED: int
 
     def __init__(self) -> None: ...
     def mlx_init(self) -> int | None: ...
