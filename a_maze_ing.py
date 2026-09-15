@@ -152,7 +152,7 @@ def encode_maze(maze: MazeGenerator) -> str:
     )
 
 
-# --- Own one MLX session and its images ---
+# --- Own one MLX session and its frame ---
 
 
 class Window:
@@ -167,7 +167,6 @@ class Window:
     mlx_ptr: int
     win_ptr: int
     frame_ptr: int
-    images: list[int]
     tiles: dict[str, list[tuple[int, int, bytes]]]
     pixels: memoryview
     size_line: int
@@ -186,8 +185,6 @@ class Window:
         self.path_visible = True
         self.wall_color = 0
         self.background = None
-        # Prepare ownership records before acquiring any native resources.
-        self.images = []
         self.tiles = {}
 
         self.mlx = Mlx()
@@ -213,7 +210,6 @@ class Window:
             if frame_ptr is None:
                 raise RuntimeError("mlx_new_image failed")
             self.frame_ptr = frame_ptr
-            self.images.append(self.frame_ptr)
             self.pixels, _, self.size_line, _ = self.mlx.mlx_get_data_addr(
                 self.frame_ptr
             )
@@ -223,7 +219,7 @@ class Window:
             raise
 
     def _load_tiles(self) -> None:
-        """Load each PNG once and keep its visible row segments for drawing."""
+        """Copy PNG row segments, then release each temporary native image."""
         assets = Path(__file__).parent / "assets"
         for name in _ASSETS:
             image, width, height = self.mlx.mlx_png_file_to_image(
@@ -231,26 +227,32 @@ class Window:
             )
             if image is None:
                 raise RuntimeError(f"cannot load asset {name}")
-            self.images.append(image)
-            pixels, _, size_line, pixel_format = self.mlx.mlx_get_data_addr(
-                image
-            )
-            # MLX uses 4-byte pixels: BGRA for format 0, ARGB for format 1.
-            alpha_offset = 3 if pixel_format == 0 else 0
-            self.tiles[name] = []
-            for y in range(height):
-                # Row size includes padding; keep only the actual pixels.
-                row_start = y * size_line
-                row_end = row_start + width * 4
-                row = bytes(pixels[row_start:row_end])
-                # Asset rows have alpha 0/255 and at most one opaque run.
-                alpha = row[alpha_offset::4]
-                left = alpha.find(b"\xff")
-                if left == -1:
-                    continue
-                byte_start = left * 4
-                byte_end = (alpha.rfind(b"\xff") + 1) * 4
-                self.tiles[name].append((left, y, row[byte_start:byte_end]))
+            try:
+                pixels, _, size_line, pixel_format = (
+                    self.mlx.mlx_get_data_addr(image)
+                )
+                # Release the borrowed view before destroying its image.
+                with pixels:
+                    # BGRA for format 0, ARGB for format 1.
+                    alpha_offset = 3 if pixel_format == 0 else 0
+                    self.tiles[name] = []
+                    for y in range(height):
+                        # Skip row padding; copy only the actual pixels.
+                        row_start = y * size_line
+                        row_end = row_start + width * 4
+                        row = bytes(pixels[row_start:row_end])
+                        # Alpha is 0/255, with at most one opaque run.
+                        alpha = row[alpha_offset::4]
+                        left = alpha.find(b"\xff")
+                        if left == -1:
+                            continue
+                        byte_start = left * 4
+                        byte_end = (alpha.rfind(b"\xff") + 1) * 4
+                        self.tiles[name].append(
+                            (left, y, row[byte_start:byte_end])
+                        )
+            finally:
+                _ = self.mlx.mlx_destroy_image(self.mlx_ptr, image)
 
     # --- Callbacks may use the window until the event loop returns ---
 
@@ -276,15 +278,15 @@ class Window:
             self.close()
 
     def close(self) -> None:
-        """Release images before their window, and the MLX context last."""
+        """Release the frame before its window, and the MLX context last."""
         # There is no recorded session handle available for cleanup.
         if not hasattr(self, "mlx_ptr"):
             return
         # Invalidate the borrowed view before freeing its native image memory.
         if hasattr(self, "pixels"):
             self.pixels.release()
-        for image in reversed(self.images):
-            _ = self.mlx.mlx_destroy_image(self.mlx_ptr, image)
+        if hasattr(self, "frame_ptr"):
+            _ = self.mlx.mlx_destroy_image(self.mlx_ptr, self.frame_ptr)
         if hasattr(self, "win_ptr"):
             _ = self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
         _ = self.mlx.mlx_release(self.mlx_ptr)
