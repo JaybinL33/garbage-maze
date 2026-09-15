@@ -16,8 +16,8 @@ _MOVES = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
 _ASSETS = (
     "wall-0.png",
     "wall-1.png",
-    "open-e.png",
-    "open-s.png",
+    "open-n.png",
+    "open-w.png",
     "pattern.png",
     "path.png",
     "entry.png",
@@ -310,12 +310,11 @@ class Window:
                         self.draw_tile(wall_tile, px, py)
                         if walls == ALL_WALLS:
                             self.draw_tile("pattern.png", px, py)
-                        # Open tiles start at the cell above or to the left.
-                        # Paint both cells before drawing their opening.
+                        # Above and left neighbours are already painted.
                         if not walls & NORTH_BIT:
-                            self.draw_tile("open-s.png", px, py - _CELL)
+                            self.draw_tile("open-n.png", px, py)
                         if not walls & WEST_BIT:
-                            self.draw_tile("open-e.png", px - _CELL, py)
+                            self.draw_tile("open-w.png", px, py)
                 # Cache no markers, so hiding the path erases its old pixels.
                 self.background = bytes(self.pixels)
             else:
