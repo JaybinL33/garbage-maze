@@ -10,6 +10,7 @@ from mlx import Mlx
 
 from mazegen import ALL_WALLS, NORTH_BIT, WEST_BIT, MazeGenerator
 
+KEY_ESC = 0xFF1B
 _CELL = 16
 _KEYS = {"WIDTH", "HEIGHT", "ENTRY", "EXIT", "OUTPUT_FILE", "PERFECT", "SEED"}
 _MOVES = {(0, -1): "N", (1, 0): "E", (0, 1): "S", (-1, 0): "W"}
@@ -368,7 +369,7 @@ class Window:
             _state: Unused MLX callback argument.
         """
         try:
-            if keycode == 65_307:
+            if keycode == KEY_ESC:
                 _ = self.mlx.mlx_loop_exit(self.mlx_ptr)
                 return
             pressed = chr(keycode).lower() if keycode < 256 else ""
