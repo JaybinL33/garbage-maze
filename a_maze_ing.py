@@ -212,7 +212,7 @@ class Window:
 
     def _load_tiles(self) -> None:
         """Load each PNG once and keep its visible row segments for drawing."""
-        assets = Path(__file__).parent / "assets" / "16"
+        assets = Path(__file__).parent / "assets"
         for name in _ASSETS:
             image, width, height = self.api.mlx_png_file_to_image(
                 self.mlx, str(assets / name)
