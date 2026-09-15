@@ -4,69 +4,71 @@
 
 ## Description
 
-설정 파일을 읽어 미로를 만들고, 벽과 최단 경로를 파일에 저장한 뒤
-MiniLibX 창으로 보여주는 Python 프로젝트입니다. 생성기 `mazegen`은
-화면이나 파일 저장 기능 없이 다른 프로젝트에서도 사용할 수 있습니다.
+A Python program that reads a configuration file, generates a maze, saves its
+walls and shortest path, and displays it in a MiniLibX window. The `mazegen`
+package can also be used on its own, without graphics or file handling.
 
-- `PERFECT=False`: 기본 모드입니다. 순환 경로를 만들고 막다른길을 줄입니다.
-- `PERFECT=True`: 순환 없이, 이동 가능한 두 칸 사이의 경로가 하나인 미로를 만듭니다.
+- `PERFECT=False`: the default mode; adds loops and reduces dead ends.
+- `PERFECT=True`: generates a maze with no loops and exactly one path between
+  any two walkable cells.
 
 ## Instructions
 
-### 설치와 실행
+### Install and run
 
-Ubuntu x86-64, Python 3.10 이상, `make`, [uv][uv-install]가 필요합니다.
-화면을 띄우려면 X11 환경과 Vulkan 드라이버가 필요하며, Wayland에서는
-XWayland를 사용합니다. 시스템 라이브러리는 XCB, XCB keysyms, Vulkan,
-zlib, libbsd가 필요합니다.
+You need Ubuntu x86-64, Python 3.10 or later, `make`, and [uv][uv-install].
+The window requires an X11 display and a working Vulkan driver. Use XWayland
+on a Wayland desktop. Required system libraries are XCB, XCB keysyms, Vulkan,
+zlib, and libbsd.
 
-저장소 루트에서 실행합니다.
+From the repository root:
 
 ~~~sh
 make install
 make run
 ~~~
 
-`make install`은 `uv.lock`에 맞춰 `.venv`와 Python 의존성을 준비합니다.
-MLX는 동봉한 Ubuntu wheel을 사용합니다. 시스템 라이브러리와 드라이버는
-따로 설치해야 합니다.
+`make install` prepares `.venv` and the Python dependencies using `uv.lock`.
+MLX comes from the bundled Ubuntu wheel. Install system libraries and graphics
+drivers separately.
 
-직접 실행하거나 다른 설정 파일을 사용하려면:
+To run the program directly or use another configuration file:
 
 ~~~sh
 source .venv/bin/activate
 python3 a_maze_ing.py config.txt
 ~~~
 
-`config.txt` 자리에 사용할 파일 경로를 넣습니다. 인자는 이 파일 하나입니다.
-실행하면 `OUTPUT_FILE`에 미로가 저장되고 창이 열립니다.
-같은 파일이 이미 있으면 덮어씁니다.
+Replace `config.txt` with your file path. It is the only command-line argument.
+The program writes the maze to `OUTPUT_FILE`, then opens the window.
+An existing output file is overwritten.
 
-### 조작과 개발 명령
+### Controls and development commands
 
-| 키 | 동작 |
+| Key | Action |
 | --- | --- |
-| `R` | 새 미로를 생성·저장하고 화면 갱신 |
-| `P` | 최단 경로 표시·숨김 |
-| `C` | 벽 색상 전환 |
-| `Escape` / 창 닫기 | 종료 |
+| `R` | Generate, save, and display a new maze |
+| `P` | Show or hide the shortest path |
+| `C` | Switch wall colours |
+| `Escape` / close button | Quit |
 
-시작점은 청록색, 끝점은 산호색, 경로는 호박색, `42` 문양은 보라색입니다.
-셀 간격은 16픽셀로 고정되어 있어 큰 미로는 화면 밖으로 잘릴 수 있습니다.
+The entry is cyan, the exit is coral, the path is amber, and the `42` pattern
+is purple. Cells use a fixed 16-pixel spacing, so large mazes may extend beyond
+the screen.
 
-| 명령 | 동작 |
+| Command | Action |
 | --- | --- |
-| `make debug` | Python 디버거 `pdb`로 실행 |
-| `make lint` | flake8와 과제 지정 옵션의 mypy 검사 |
-| `make lint-strict` | flake8와 mypy strict 검사 |
-| `make package` | 소스에서 루트의 제출용 wheel 다시 빌드 |
-| `make clean` | Python·mypy 캐시와 빌드 중간 파일 삭제 |
+| `make debug` | Run with Python's `pdb` debugger |
+| `make lint` | Run flake8 and mypy with the subject's required options |
+| `make lint-strict` | Run flake8 and mypy in strict mode |
+| `make package` | Rebuild the submission wheel from source in the repository root |
+| `make clean` | Remove Python/mypy caches and intermediate build files |
 
-`make clean`은 가상환경, 출력 미로, 제출용 wheel을 보존합니다.
+`make clean` keeps the virtual environment, output maze, and submission wheel.
 
-## 설정 파일
+## Configuration
 
-기본 [config.txt](config.txt)는 다음과 같습니다.
+The supplied [config.txt](config.txt) contains:
 
 ~~~ini
 WIDTH=25
@@ -78,51 +80,57 @@ PERFECT=False
 SEED=42
 ~~~
 
-| 키 | 필수 | 값 |
+| Key | Required | Value |
 | --- | --- | --- |
-| `WIDTH`, `HEIGHT` | 예 | 양의 정수인 가로·세로 칸 수 |
-| `ENTRY`, `EXIT` | 예 | 서로 다른 시작·끝 좌표 `x,y` |
-| `OUTPUT_FILE` | 예 | 저장할 파일 경로 |
-| `PERFECT` | 예 | 정확히 `True` 또는 `False` |
-| `SEED` | 아니요 | 재현에 사용할 정수 |
+| `WIDTH`, `HEIGHT` | Yes | Positive integers: columns and rows |
+| `ENTRY`, `EXIT` | Yes | Distinct entry and exit coordinates, `x,y` |
+| `OUTPUT_FILE` | Yes | Output file path |
+| `PERFECT` | Yes | Exactly `True` or `False` |
+| `SEED` | No | An integer for reproducible generation |
 
-좌표는 왼쪽 위 `(0, 0)`에서 시작하며, 오른쪽으로 x, 아래쪽으로 y가 증가합니다.
-시작과 끝은 미로 안에 있어야 하고, 중앙의 닫힌 `42` 칸과 겹칠 수 없습니다.
-기본 모드는 순환을 두 개 만들 수 없는 `(WIDTH - 1) * (HEIGHT - 1) < 2`인
-크기를 거부합니다. `42`를 배치하기에 작으면 오류 메시지를 출력하고 문양 없이 생성합니다.
+Coordinates start at `(0, 0)` in the top-left corner. x increases to the right;
+y increases downwards. Entry and exit must be inside the maze and outside the
+closed `42` cells. Default mode rejects sizes where
+`(WIDTH - 1) * (HEIGHT - 1) < 2`, since they cannot contain two independent loops.
+If the maze is too small for the pattern, it is generated without `42` and an
+error message is printed.
 
-한 줄에 `KEY=VALUE` 하나를 씁니다. 빈 줄과 `#`로 시작하는 주석 줄은 무시합니다.
-키와 값 양쪽의 공백은 허용하며, 키 이름은 대소문자를 구분합니다.
-지원하지 않는 키는 오류이고, 중복 키는 마지막 값을 사용합니다.
-줄 끝 주석은 지원하지 않습니다. 상대 파일 경로는 실행한 폴더를 기준으로 합니다.
+Write one `KEY=VALUE` pair per line. Blank lines and lines starting with `#`
+are ignored. Surrounding whitespace is allowed; key names are case-sensitive.
+Unknown keys are rejected, and the last value wins for duplicate keys.
+Inline comments are not supported. Relative paths are resolved from the
+directory where the program is run.
 
-`SEED`를 생략하면 실행할 때 새 난수 흐름을 만듭니다. 지정하면 같은 설정과
-같은 Python·코드 환경에서 생성 순서를 재현할 수 있습니다. `R`은 시드를 다시
-설정하지 않고 그 흐름을 이어갑니다. 값이 비어 있거나 정수가 아니면 오류입니다.
+Without `SEED`, each run starts a new random stream. With a seed, the same
+configuration, code, and Python environment reproduce the generation sequence.
+`R` continues that stream rather than resetting it. An empty or non-integer
+seed is an error.
 
-## 생성 방식
+## Generation algorithm
 
-**무작위 깊이 우선 탐색(DFS)**으로 방문하지 않은 이웃을 연결합니다.
-더 갈 곳이 없으면 되돌아가 다른 이웃을 찾습니다. 재귀 대신 스택을 사용하므로
-큰 미로에서도 재귀 깊이 제한을 받지 않습니다.
+**Randomized depth-first search (DFS)** connects unvisited neighbours.
+When there is nowhere left to go, it backtracks to try another neighbour.
+An explicit stack avoids Python's recursion-depth limit.
 
-이 단계의 결과는 모든 통로가 연결된 트리이며, perfect 모드는 여기서 끝납니다.
-기본 모드에서는 막다른길의 벽을 추가로 열어 최소 두 개의 독립 순환을 만듭니다.
-이후 **너비 우선 탐색(BFS)**으로 시작부터 끝까지의 최단 경로를 구합니다.
+The result is a tree connecting all walkable cells. Perfect mode stops there.
+Default mode opens extra walls at dead ends and ensures at least two
+independent loops. **Breadth-first search (BFS)** then finds a shortest path
+from entry to exit.
 
-DFS는 전체 간선 목록이나 별도의 집합 관리 구조 없이 격자와 스택만으로
-구현할 수 있어 선택했습니다. 생성과 경로 탐색에 필요한 시간·메모리는
-칸 수에 비례합니다. 생성 로직은 `mazegen/`, 설정·저장·화면 처리는
-`a_maze_ing.py`가 맡습니다.
+We chose DFS because it needs only the grid and a stack, without a full edge
+list or a separate disjoint-set structure. Generation and pathfinding use
+time and memory proportional to the number of cells. `mazegen/` owns generation;
+`a_maze_ing.py` handles configuration, files, and display.
 
-## 출력 파일
+## Output format
 
-한 칸을 16진수 한 자리로 저장합니다. 벽의 비트값은 북 `1`, 동 `2`, 남 `4`,
-서 `8`이며, **1이면 벽, 0이면 통로**입니다. 예를 들어 `A`는 동·서쪽이 막힌 칸입니다.
+Each cell is stored as one hexadecimal digit. The wall bit values are north
+`1`, east `2`, south `4`, and west `8`: **1 means closed; 0 means open**.
+For example, `A` means the east and west walls are closed.
 
-미로를 행마다 한 줄씩 쓴 뒤, 빈 줄과 시작 좌표·끝 좌표·최단 경로를 씁니다.
-경로는 `N`, `E`, `S`, `W`로 나타내며 모든 줄은 줄바꿈으로 끝납니다.
-가로 두 칸짜리 perfect 미로의 출력 예시입니다.
+The file contains one line per maze row, a blank line, then the entry, exit,
+and shortest path on three separate lines. The path uses `N`, `E`, `S`, and
+`W`. Every line ends with a newline. A two-cell perfect maze looks like this:
 
 ~~~text
 D7
@@ -132,11 +140,11 @@ D7
 E
 ~~~
 
-## 생성기 재사용
+## Reusing the generator
 
-루트의 `mazegen-1.0.0-py3-none-any.whl`에는 생성기와 사용 설명이 들어 있습니다.
-MLX나 이미지 에셋은 필요하지 않습니다. 다른 프로젝트의 가상환경에서
-wheel 파일을 복사한 위치로 이동한 뒤 설치합니다.
+The root-level `mazegen-1.0.0-py3-none-any.whl` contains the generator and its
+documentation. It does not need MLX or image assets. In another project's
+virtual environment, copy the wheel into your current directory and install it:
 
 ~~~sh
 python3 -m pip install ./mazegen-1.0.0-py3-none-any.whl
@@ -155,45 +163,48 @@ print(maze.entry, maze.exit)
 print(maze.path)
 ~~~
 
-앞의 네 인자는 가로·세로 크기와 시작·끝 좌표입니다. `rng`는 필수이고,
-`perfect`는 생략하면 `False`입니다. 같은 `rng`를 다음 생성에도 전달하면
-난수 흐름이 이어집니다.
+The first four arguments are width, height, entry coordinates, and exit
+coordinates. `rng` is required; `perfect` defaults to `False`. Passing the same
+`rng` to another generation continues the random stream.
 
-`walls[y][x]`는 위에서 설명한 벽 코드입니다. `path`는 시작과 끝을 포함한
-`(x, y)` 좌표들로 이루어진 튜플입니다.
-자세한 API는 [패키지 사용 설명](mazegen/README.md)에 있습니다.
+`walls[y][x]` is the wall code described above. `path` is a tuple of `(x, y)`
+coordinates, including both endpoints. See the [package guide](mazegen/README.md)
+for the full API.
 
-## 팀과 진행 방식
+## Team and project management
 
-- `hyunlee`: 미로 생성·최단 경로 탐색과 생성기 API.
-- `jungblee`: 설정·파일 출력·MLX 화면과 패키징.
+- `hyunlee`: maze generation, shortest-path solving, and the generator API.
+- `jungblee`: configuration, file output, MLX display, and packaging.
 
-처음에는 벽과 경로의 전달 형식을 정하고, 생성기와 앱을 나누어 구현한 뒤
-통합하는 순서를 계획했습니다. 이후 알고리즘과 화면 구성을 비교하면서,
-현재 제출본은 생성기 패키지와 앱 한 파일을 중심으로 단순화했습니다.
+Our initial plan was to agree on the wall and path formats, implement the
+generator and app separately, then integrate them. After comparing algorithms
+and display designs, we simplified the submission around one generator package
+and one application file.
 
-잘된 점은 벽과 좌표라는 작은 인터페이스 덕분에 생성기와 화면을 따로
-검사할 수 있었다는 것입니다. 개선할 점은 구현 전에 요구사항을 더 정확히
-정리하는 것입니다. 시드의 재현 방식과 작은 미로의 `42` 배치 조건을 뒤늦게 재검토했습니다.
+The small interface of wall codes and coordinates made it possible to test
+generation and rendering separately. We could improve by clarifying requirements
+earlier: seed behaviour and the `42` placement rules for small mazes both needed
+later review.
 
-버전 관리는 Jujutsu/Git, 환경 구성은 uv, 패키징은 setuptools를 사용합니다.
-코드는 flake8·mypy로, 동작은 별도 테스트와 과제 제공 분석기로 확인합니다.
+We use Jujutsu/Git for version control, uv for environments, and setuptools for
+packaging. Checks use flake8, mypy, separate tests, and the supplied maze analyzer.
 
 ## Resources
 
-- [A-Maze-ing v2.3 과제 원문][subject]과 함께 제공된 `maze_analyzer.py`.
-- [MIT DFS 강의][dfs], [MIT BFS 강의][bfs] — 그래프 탐색의 원리.
-- [Python random][random] — 시드와 난수 객체.
-- [MiniLibX 문서 위치와 Python API 안내](third_party/mlx/README.md).
-- [uv 프로젝트 사용법][uv-project], [Python 패키징 가이드][packaging].
+- [A-Maze-ing v2.3 subject][subject] and its accompanying `maze_analyzer.py`.
+- [MIT DFS lecture][dfs] and [MIT BFS lecture][bfs]: graph traversal.
+- [Python random][random]: seeds and random number generators.
+- [MiniLibX documentation locations and Python API guide](third_party/mlx/README.md).
+- [uv project guide][uv-project] and [Python packaging guide][packaging].
 
-AI는 요구사항 해석과 알고리즘 비교, `mazegen`·`a_maze_ing.py`의 초안 및
-리팩터링, 테스트 작성, 패키징 점검과 문서 작성에 사용했습니다.
+AI was used for interpreting requirements, comparing algorithms, drafting and
+refactoring `mazegen` and `a_maze_ing.py`, writing tests, checking packaging,
+and writing documentation.
 
-## 라이선스
+## License
 
-프로젝트 코드는 [Blue Oak Model License 1.0.0](LICENSE.md),
-동봉한 MiniLibX는 [별도의 MIT 라이선스](third_party/mlx/LICENSE.md)를 따릅니다.
+Project code uses the [Blue Oak Model License 1.0.0](LICENSE.md).
+Bundled MiniLibX retains its [separate MIT license](third_party/mlx/LICENSE.md).
 
 [subject]: https://cdn.intra.42.fr/pdf/pdf/224851/en.subject.pdf
 [uv-install]: https://docs.astral.sh/uv/getting-started/installation/

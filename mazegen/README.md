@@ -1,22 +1,25 @@
 # mazegen
 
-Python 3.10 이상에서 사용하는 미로 생성기입니다. 표준 라이브러리만 사용하며,
-설정 파일·파일 저장·MLX에 의존하지 않습니다. 생성과 최단 경로 탐색은
-`MazeGenerator(...)` 호출 때 끝납니다.
+A maze generator for Python 3.10 or later, using only the standard library.
+It does not read configuration files, write files, or depend on MLX.
+Calling `MazeGenerator(...)` generates the maze and finds a shortest path.
 
-[Blue Oak Model License 1.0.0](https://blueoakcouncil.org/license/1.0.0)으로
-재사용·수정·재배포할 수 있습니다. 재배포할 때는 라이선스 본문 또는 위 링크를
-받는 사람에게 전달합니다. 소스 공개나 변경 사실 표시를 요구하지 않으며,
-기여자가 허락할 수 있는 특허 사용권도 명시합니다. 제삼자의 특허 위험까지
-없애 주는 것은 아닙니다. 라이선스 전문은 wheel에 포함됩니다.
+The [Blue Oak Model License 1.0.0](https://blueoakcouncil.org/license/1.0.0)
+allows reuse, modification, and redistribution. When redistributing, provide
+the license text or its official link. It does not require publishing source
+code or marking changes. It includes a patent grant within the contributors'
+authority, not a guarantee against third-party patent claims.
+The full license is included in the wheel.
 
-## 설치와 사용
+## Install and use
 
-```sh
-python3 -m pip install mazegen-1.0.0-py3-none-any.whl
-```
+Run this in a Python virtual environment, from the directory containing the wheel:
 
-```python
+~~~sh
+python3 -m pip install ./mazegen-1.0.0-py3-none-any.whl
+~~~
+
+~~~python
 from random import Random
 
 from mazegen import EAST_BIT, MazeGenerator
@@ -28,56 +31,61 @@ print(maze.walls[0][0])
 print(maze.entry, maze.exit)
 print(maze.path)
 print(bool(maze.walls[0][0] & EAST_BIT))
-```
+~~~
 
-## 매개변수
+## Parameters
 
-| 이름 | 의미 |
+| Name | Meaning |
 | --- | --- |
-| `width`, `height` | 양의 정수인 가로·세로 칸 수 |
-| `entry_cell`, `exit_cell` | 서로 다른 시작·끝 좌표 `(x, y)` |
-| `rng` | 필수 키워드 인자. 호출자가 만든 `random.Random` 객체 |
-| `perfect` | 키워드 인자. 기본값 `False`; `True`이면 순환이 없는 미로 |
+| `width`, `height` | Positive integers: columns and rows |
+| `entry_cell`, `exit_cell` | Distinct entry and exit coordinates, `(x, y)` |
+| `rng` | Required keyword argument: a caller-owned `random.Random` instance |
+| `perfect` | Keyword argument, default `False`; `True` generates a maze without loops |
 
-같은 크기·좌표·모드에 새 `Random(42)`를 전달하면 같은 미로를 얻습니다.
-위의 `rng`를 다음 생성에도 전달하면 난수 흐름이 이어집니다. 시드를 정하지
-않으려면 `Random()`을 사용합니다. 서로 다른 생성에서 같은 모양이 나올 수는
-있습니다. 시드 재현은 같은 구현과 Python 환경을 기준으로 합니다.
+A fresh `Random(42)` reproduces the same maze for the same dimensions, endpoints,
+mode, code, and Python environment. Reusing the `rng` object continues its random
+stream. Use `Random()` to start without a fixed seed. Separate generations are
+not guaranteed to produce different mazes.
 
-시작과 끝은 범위 안에 있어야 하고, 중앙의 닫힌 `42` 칸에 겹칠 수 없습니다.
-기본 모드는 최소 두 독립 순환이 필요하므로 `(width - 1) * (height - 1) < 2`인
-크기를 거부합니다. 잘못된 크기나 좌표에는 `ValueError`가 발생합니다.
+Endpoints must be within bounds and must not overlap the closed `42` cells.
+Default mode requires at least two independent loops, so it rejects sizes where
+`(width - 1) * (height - 1) < 2`. Invalid dimensions or coordinates raise
+`ValueError`.
 
-## 결과 읽기
+## Reading the result
 
-- `walls: tuple[bytes, ...]`: `walls[y][x]`로 읽는 벽 코드입니다.
-- `entry`, `exit`: 시작과 끝의 `(x, y)` 좌표입니다.
-- `path: tuple[tuple[int, int], ...]`: 시작과 끝을 포함한 최단 경로입니다.
+- `walls: tuple[bytes, ...]`: wall codes, accessed as `walls[y][x]`.
+- `entry`, `exit`: the endpoint coordinates, `(x, y)`.
+- `path: tuple[tuple[int, int], ...]`: a shortest path including both endpoints.
 
-벽 코드의 비트는 북쪽 `NORTH_BIT=1`, 동쪽 `EAST_BIT=2`, 남쪽 `SOUTH_BIT=4`,
-서쪽 `WEST_BIT=8`입니다. **1이면 벽이 있고, 0이면 통로입니다.**
-`ALL_WALLS=15`는 네 벽이 모두 닫힌 `42` 칸입니다. 이 상수들과 좌표 타입 별칭
-`Coord`도 `mazegen`에서 임포트할 수 있습니다. `Coord`는 `(x, y)`를 나타내는
-`tuple[int, int]`이며, 생성 중 사용하는 정수 셀 번호와 구분합니다.
+Wall bits are `NORTH_BIT=1`, `EAST_BIT=2`, `SOUTH_BIT=4`, and `WEST_BIT=8`.
+**A set bit means a wall; a cleared bit means a passage.**
+`ALL_WALLS=15` identifies a fully closed `42` cell in the generated result.
+These constants and the `Coord` type alias can also be imported from `mazegen`.
+`Coord` means `tuple[int, int]`: an `(x, y)` coordinate, not the flat integer
+cell index used during generation.
 
-벽 행과 경로는 불변 값입니다. 객체 속성 자체의 재할당을 막지는 않으므로,
-결과를 읽기 전용으로 다루고 새 미로가 필요하면 다시 생성합니다.
+Wall rows and the path are immutable values, but assigning new values to the
+object's attributes is not prevented. Treat the result as read-only and create
+another instance when you need a new maze.
 
-## 생성 방식과 제한
+## Algorithm and limits
 
-반복형 무작위 DFS로 모든 통로를 연결합니다. `perfect=True`는 이 트리에서
-끝나므로 모든 통로 쌍 사이에 경로가 하나뿐입니다. 기본 모드는 막다른길의
-벽을 추가로 열고, 필요하면 순환이 두 개가 될 때까지 벽을 더 엽니다.
-BFS는 완성된 미로에서 최단 경로 하나를 구합니다.
+Iterative randomized DFS connects all walkable cells. With `perfect=True`,
+the result remains a tree with exactly one path between any two walkable cells.
+Default mode opens walls at dead ends, then adds more passages if needed to
+reach two independent loops. BFS finds a shortest path through the result.
 
-기본 모드의 행 우선 순회와 북·동·남·서 선택 순서는 DFS와 함께 열린 `3x3`
-공간을 막는 조건입니다. 알고리즘이나 이 순서를 바꾸면 다시 검증해야 합니다.
-`42`에 둘러싸인 피할 수 없는 작은 주머니는 남습니다. 따라서 분석기의
-`real dead-end`가 0이라는 성질은 모든 칸의 차수가 2 이상이라는 뜻이 아닙니다.
-두 독립 순환도 임의의 두 칸 사이에 독립 경로 두 개가 있다는 보장은 아닙니다.
+Preventing fully open `3x3` areas depends on DFS together with the current
+row-major braiding pass and north/east/south/west choice order. Recheck this
+property before changing either algorithm or order. Small pockets forced by
+the `42` pattern remain: zero `real dead-ends` in the supplied analyzer does
+not mean every cell has at least two passages. Two independent loops also do
+not guarantee two independent paths between every pair of cells.
 
-고정 `7x5` 문양의 원점은 `((width - 7) // 2, (height - 5) // 2)`입니다.
-통로 연결을 유지하려면 최소 `8x6`이 필요합니다. 정확히 `8x6`에서는 문양이
-모서리를 차지하므로 perfect 모드에서만 배치합니다. 기본 모드는 `8x7` 또는
-`9x6` 이상에서 배치합니다. 이 배치가 불가능하면 문양 없이 생성합니다.
-라이브러리는 콘솔에 출력하지 않으며, 필요한 경고는 호출자가 처리합니다.
+The fixed `7x5` pattern starts at
+`((width - 7) // 2, (height - 5) // 2)`.
+Preserving connectivity needs at least `8x6`. At exactly `8x6`, the pattern
+occupies a corner and is placed only in perfect mode. Default mode needs at
+least `8x7` or `9x6`. When it does not fit, generation proceeds without it.
+The library does not print warnings; the caller handles any user-facing message.

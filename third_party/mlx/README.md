@@ -1,65 +1,68 @@
 # MiniLibX 2.2
 
-과제와 함께 제공된 `mlx-2.2.tgz`의 Ubuntu x86-64 wheel을 수정 없이 사용합니다.
-파일명은 `py3-none-any`이지만 내부의 `libmlx.so`는 Linux x86-64 바이너리입니다.
+This is the unmodified Ubuntu x86-64 wheel from `mlx-2.2.tgz`, supplied with
+the assignment. Despite the `py3-none-any` filename, its `libmlx.so` is a
+Linux x86-64 binary.
 
-- 파일: `ubuntu/mlx-2.2-py3-none-any.whl`
+- File: `ubuntu/mlx-2.2-py3-none-any.whl`
 - SHA-256: `7a1a44b50b6295f574522ba1a1e589632c6299d193dec57c951e8fdfb3337195`
-- 원본 아카이브 SHA-256: `17c7197e0a0bdc6aa2172c14c712f2d16832f19485ca6f7aa94ddeff46346783`
-- 저작권: 2025 42 Born2code - Olivier CROUZET
-- 라이선스: 이 폴더의 [LICENSE.md](LICENSE.md), MIT
+- Original archive SHA-256: `17c7197e0a0bdc6aa2172c14c712f2d16832f19485ca6f7aa94ddeff46346783`
+- Copyright: 2025 42 Born2code - Olivier CROUZET
+- License: MIT; see [LICENSE.md](LICENSE.md).
 
-프로젝트 설치는 `pyproject.toml`의 로컬 경로를 사용합니다. 이 의존성은
-앱 실행 환경에만 설치되며, 독립 `mazegen` 패키지의 의존성에는 들어가지 않습니다.
-호스트에는 XCB, Vulkan, zlib, libbsd와 작동하는 그래픽 드라이버가 필요합니다.
-X11 화면이 필요하며, Wayland 환경에서는 XWayland가 필요합니다.
+`pyproject.toml` installs this wheel from its local path for the application.
+The standalone `mazegen` package does not depend on it. The host needs XCB,
+XCB keysyms, Vulkan, zlib, libbsd, a working graphics driver, and an X11 display.
+Wayland desktops need XWayland.
 
-## API 확인
+## Finding the API
 
-Python 래퍼와 C API 문서는 위 wheel에 함께 들어 있습니다. `make install` 후
-저장소 루트에서 다음 명령으로 설치된 래퍼 위치를 확인합니다.
+The wheel includes the Python wrapper and C API documentation.
+After `make install`, run this from the repository root:
 
-```sh
+~~~sh
 .venv/bin/python -c 'import inspect; from mlx import Mlx; print(inspect.getfile(Mlx))'
-```
+~~~
 
-출력된 `mlx.py`와 같은 폴더를 기준으로 읽습니다. Python 버전에 따라
-`.venv/lib/python3.x/site-packages/mlx/`의 경로가 달라집니다.
+Use the directory containing the reported `mlx.py` as your starting point.
+Its `.venv/lib/python3.x/site-packages/mlx/` location depends on the Python version.
 
-| 파일 | 확인할 내용 |
+| File | What to look for |
 | --- | --- |
-| `mlx.py` | 실제 Python 메서드의 인자·반환값, 콜백 연결 |
-| `docs/mlx.h` | C API 전체 목록과 상수, 자원과 이미지 형식의 계약 |
-| `docs/mlx.3`, `docs/mlx_new_window.3` | 초기화·해제, 창 생성·파괴 |
-| `docs/mlx_new_image.3` | PNG 읽기, 이미지 메모리·size_line·픽셀 형식, 화면 표시 |
-| `docs/mlx_loop.3` | 이벤트 루프, 키·노출·일반 콜백, 루프 종료 |
-| `docs/mlx_extra.3` | `mlx_sync`와 동기화 명령 |
-| `test/simple_test.py` | 창 생성 → 콜백 등록 → 이벤트 루프의 제공 예제 |
+| `mlx.py` | Python method arguments, return values, and callback wiring |
+| `docs/mlx.h` | C API declarations, constants, resources, and image formats |
+| `docs/mlx.3`, `docs/mlx_new_window.3` | Context and window creation/destruction |
+| `docs/mlx_new_image.3` | PNG loading, pixel memory, row size, formats, and display |
+| `docs/mlx_loop.3` | Event loop, hooks, and loop exit |
+| `docs/mlx_extra.3` | `mlx_sync` and synchronization commands |
+| `test/simple_test.py` | A working example: window, callbacks, and event loop |
 
-`.3`은 C API의 man 문서입니다. 편집기로 읽거나 그 파일이 있는 `docs` 폴더에서
-`man -l mlx_new_image.3`처럼 열 수 있습니다. Python 호출 형태는 `mlx.py`를
-함께 확인해야 합니다. C에서 출력 포인터로 받는 값은 Python에서 튜플로 반환합니다.
-예를 들어 `mlx_get_data_addr(image)`는 `(memoryview, bits_per_pixel, size_line,
-pixel_format)`을 반환하며, 마지막 값은 endian이 아니라 픽셀 형식입니다.
+The `.3` files are C API manual pages. Read them in an editor or run
+`man -l mlx_new_image.3` from their `docs` directory. Check `mlx.py` for the
+Python calling convention: values returned through C output pointers are
+returned in Python tuples. For example, `mlx_get_data_addr(image)` returns
+`(memoryview, bits_per_pixel, size_line, pixel_format)`.
+The last value is a pixel format, not an endianness flag.
 
-앱의 `self.mlx`는 이 래퍼의 `Mlx` 객체이고, `self.mlx_ptr`는 `mlx_init()`이
-반환한 네이티브 컨텍스트 핸들입니다. `self.win_ptr`는 창 핸들,
-`self.frame_ptr`는 화면 전체를 조립하는 이미지 핸들입니다. `self.size_line`은
-프레임의 한 행이 메모리에서 차지하는 바이트 수이며, 패딩도 포함합니다.
-`Window`, `draw()`, `draw_tile()`은 MLX API가 아니라 이 프로젝트에서 작성한
-코드입니다.
+In the app, `self.mlx` is the Python `Mlx` wrapper, while `self.mlx_ptr` is
+the native context handle returned by `mlx_init()`. `self.win_ptr` is the
+window handle; `self.frame_ptr` is the full-window image handle.
+`self.size_line` is the number of bytes per image row, including padding.
+`Window`, `draw()`, and `draw_tile()` belong to this project, not the MLX API.
 
-## 프로젝트에서 사용하는 타입 선언
+## Type declarations
 
-[typings/mlx/mlx.pyi](../../typings/mlx/mlx.pyi)는 앱에서 사용하는 API만
-선언합니다. Pyright가 생성한 초안을 위 wheel의 `mlx.py`와 `docs/mlx.h`에
-맞춰 보완했습니다. 실행 시에는 스텁이 아니라 원래 MLX 패키지를 사용합니다.
+[typings/mlx/mlx.pyi](../../typings/mlx/mlx.pyi) describes only the API used by
+the app. A Pyright-generated draft was checked and refined against the supplied
+`mlx.py` and `docs/mlx.h`. At runtime, Python uses the original MLX package,
+not this stub.
 
-핸들을 반환하는 생성 함수는 실패 시 `None`을 반환합니다. 콜백의 `_State`는
-등록할 때 넘긴 `param`과 콜백이 받는 값의 타입이 같다는 뜻입니다. Python
-래퍼는 콜백 반환값을 사용하지 않으며, `mlx_hook`은 현재 사용하는 종료 이벤트
-33만 선언했습니다. 다른 API나 이벤트가 필요해지면 해당 선언을 보완합니다.
+Handle-returning creation functions return `None` on failure. The callback
+type variable `_State` connects the type of the registered `param` to the
+callback's parameter type. The wrapper ignores callback return values.
+The `mlx_hook` declaration covers only close event 33, which the app uses.
+Extend the stub if another API or event is needed.
 
-basedpyright는 기본 `typings` 경로를 사용하고, mypy는 `pyproject.toml`의
-`mypy_path`로 같은 스텁을 읽습니다. 이 파일은 독립 `mazegen` wheel에 포함하지
-않습니다.
+basedpyright uses its default `typings` directory. mypy reads the same stubs
+through `mypy_path` in `pyproject.toml`. The stubs are not included in the
+standalone `mazegen` wheel.
