@@ -31,6 +31,11 @@ _PATTERN_HEIGHT = len(_PATTERN_42)
 class MazeGenerator:
     """Generate once; expose the completed maze without files or graphics."""
 
+    walls: tuple[bytes, ...]
+    entry: Coord
+    exit: Coord
+    path: tuple[Coord, ...]
+
     def __init__(  # noqa: C901
         self,
         width: int,
@@ -113,10 +118,10 @@ class MazeGenerator:
         for row_start in range(0, cell_count, width):
             row_end = row_start + width
             rows.append(bytes(walls[row_start:row_end]))
-        self.walls: tuple[bytes, ...] = tuple(rows)
-        self.entry: Coord = entry_cell
-        self.exit: Coord = exit_cell
-        self.path: tuple[Coord, ...] = path
+        self.walls = tuple(rows)
+        self.entry = entry_cell
+        self.exit = exit_cell
+        self.path = path
 
 
 # --- Place the closed 42 cells ---
