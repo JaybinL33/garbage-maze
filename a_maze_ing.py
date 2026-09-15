@@ -56,7 +56,7 @@ def main(arguments: list[str]) -> int:
         output = Path(config["OUTPUT_FILE"])
         seed = int(config["SEED"]) if "SEED" in config else None
     except KeyError as error:
-        print(f"Error: missing config key {error.args[0]}", file=sys.stderr)
+        print(f"Error: missing config key {error}", file=sys.stderr)
         return 1
     except Exception as error:  # noqa: BLE001
         message = str(error) or type(error).__name__
